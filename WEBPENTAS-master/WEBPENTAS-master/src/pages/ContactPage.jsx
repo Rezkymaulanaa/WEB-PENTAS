@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
+import api, { getErrorMessage } from '../utils/api';
 
 export const ContactPage = () => {
     const [name, setName] = useState('');
@@ -33,7 +33,7 @@ export const ContactPage = () => {
         setError('');
 
         try {
-            const response = await axios.post(`http://localhost:5000/contact`, {
+            const response = await api.post('/contact', {
                 name,
                 email,
                 subject,
@@ -49,7 +49,7 @@ export const ContactPage = () => {
             }
         } catch (err) {
             console.error('Terjadi kesalahan:', err);
-            setError('Terjadi kesalahan. Coba lagi nanti.');
+            setError(getErrorMessage(err, 'Terjadi kesalahan. Coba lagi nanti.'));
         } finally {
             setLoading(false);
         }

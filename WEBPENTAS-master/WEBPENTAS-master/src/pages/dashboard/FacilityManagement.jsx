@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api, { fasilitasImageUrl, getErrorMessage, handleImageError } from '../../utils/api';
+import { Toast } from '../../components/common';
 import '../../disc/css/main.css';
 
 const FacilityManagement = () => {
@@ -22,7 +23,7 @@ const FacilityManagement = () => {
   const fetchFacilities = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/fasilitas');
+      const response = await api.get('/fasilitas');
       setFacilities(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error:', error);
@@ -39,8 +40,6 @@ const FacilityManagement = () => {
   // Handle file input
   const handleFileChange = (index, file) => {
     if (file) {
-      console.log(`Processing new file for index ${index}:`, file.name);
-      
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => {
@@ -48,7 +47,7 @@ const FacilityManagement = () => {
           const newFileNames = [...prev.originalFileNames];
           newImages[index] = reader.result;
           newFileNames[index] = file.name;
-          
+
           return {
             ...prev,
             images: newImages,
@@ -77,35 +76,23 @@ const FacilityManagement = () => {
       for (let i = 0; i < 3; i++) {
         const image = formData.images[i];
         const fieldName = `image${i + 1}`;
-        
+
         if (image) {
           if (image.startsWith('data:')) {
             // Konversi base64 ke blob
             const response = await fetch(image);
             const blob = await response.blob();
-            
+
             const fileName = formData.originalFileNames[i] || `image${i + 1}.jpg`;
             formDataToSend.append(fieldName, blob, fileName);
-          } else {
-            // Gambar existing, kirim nama file saja
-            formDataToSend.append(fieldName, image);
           }
+          // Gambar lama tidak perlu dikirim ulang; server hanya mengganti gambar yang diupload baru
         }
       }
 
-      const config = {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      };
-
       let response;
       if (editingId) {
-        response = await axios.put(
-          `http://localhost:5000/fasilitas/${editingId}`,
-          formDataToSend,
-          config
-        );
+        response = await api.put(`/fasilitas/${editingId}`, formDataToSend);
         if (response.data.message === 'Fasilitas berhasil diupdate') {
           setShowModal(false);
           setFormData({ nama_fasilitas: '', kapasitas: '', gedung:'', lantai:'', images: [], originalFileNames: [] });
@@ -114,11 +101,7 @@ const FacilityManagement = () => {
           setToastMessage('Fasilitas berhasil diupdate!');  // Menampilkan pesan toast
         }
       } else {
-        response = await axios.post(
-          'http://localhost:5000/fasilitas',
-          formDataToSend,
-          config
-        );
+        response = await api.post('/fasilitas', formDataToSend);
         if (response.data.message === 'Fasilitas berhasil ditambahkan') {
           setShowModal(false);
           setFormData({ nama_fasilitas: '', kapasitas: '', gedung:'', lantai:'', images: [], originalFileNames: [] });
@@ -127,8 +110,7 @@ const FacilityManagement = () => {
         }
       }
     } catch (error) {
-      console.error('Error:', error);
-      setToastMessage('Gagal menyimpan fasilitas.');  // Menampilkan pesan error pada toast
+      setToastMessage(getErrorMessage(error, 'Gagal menyimpan fasilitas.'));
     }
   };
 
@@ -136,17 +118,11 @@ const FacilityManagement = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus fasilitas ini?')) {
       try {
-        const response = await axios.delete(`http://localhost:5000/fasilitas/${id}`);
-        
-        if (response.data.message === 'Fasilitas berhasil dihapus') {
-          setToastMessage('Fasilitas berhasil dihapus');  // Menampilkan pesan toast
-          await fetchFacilities();
-        } else {
-          setToastMessage(response.data.error);  // Menampilkan error yang dikirim dari backend
-        }
+        await api.delete(`/fasilitas/${id}`);
+        setToastMessage('Fasilitas berhasil dihapus');
+        await fetchFacilities();
       } catch (error) {
-        console.error('Error saat menghapus:', error);
-        setToastMessage('Terjadi kesalahan saat menghapus fasilitas.');  // Menampilkan pesan error pada toast
+        setToastMessage(getErrorMessage(error, 'Terjadi kesalahan saat menghapus fasilitas.'));
       }
     }
   };
@@ -165,18 +141,6 @@ const FacilityManagement = () => {
     setShowModal(true);
   };
 
-  // Auto-hide toast after 5 seconds
-  useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => {
-        setToastMessage(null);  // Hide toast after 5 seconds
-      }, 5000);
-
-      // Clear the timeout if the component is unmounted or toastMessage changes
-      return () => clearTimeout(timer);
-    }
-  }, [toastMessage]);
-
   if (loading) return <div className="loading">Loading...</div>;
   if (error) return <div className="error">{error}</div>;
 
@@ -184,10 +148,10 @@ const FacilityManagement = () => {
     <div className="management-card">
       <div className="card-header">
         <h2>Kelola Fasilitas</h2>
-        <button 
+        <button
           className="btn btn-primary"
           onClick={() => {
-            setFormData({ nama_fasilitas: '', kapasitas: '', images: [], originalFileNames: [] });
+            setFormData({ nama_fasilitas: '', kapasitas: '', gedung: '', lantai: '', images: [], originalFileNames: [] });
             setEditingId(null);
             setShowModal(true);
           }}
@@ -195,7 +159,7 @@ const FacilityManagement = () => {
           + Tambah Fasilitas
         </button>
       </div>
-      
+
       {/* Modal Form */}
       <div className={`facility-modal ${showModal ? 'show' : ''}`}>
         <div className="facility-modal-dialog">
@@ -204,12 +168,12 @@ const FacilityManagement = () => {
               <h5 className="facility-modal-title">
                 {editingId ? 'Edit Fasilitas' : 'Tambah Fasilitas'}
               </h5>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="btn-close"
                 onClick={() => {
                   setShowModal(false);
-                  setFormData({ nama_fasilitas: '', kapasitas: '', images: [], originalFileNames: [] });
+                  setFormData({ nama_fasilitas: '', kapasitas: '', gedung: '', lantai: '', images: [], originalFileNames: [] });
                   setEditingId(null);
                 }}
               />
@@ -264,22 +228,19 @@ const FacilityManagement = () => {
                       />
                       {formData.images[index - 1] && (
                         <div className="image-preview">
-                          <img 
-                            src={formData.images[index - 1].startsWith('data:') 
-                              ? formData.images[index - 1] 
-                              : `http://localhost:5000/uploads/fasilitas/${formData.images[index - 1]}`
+                          <img
+                            src={formData.images[index - 1].startsWith('data:')
+                              ? formData.images[index - 1]
+                              : fasilitasImageUrl(formData.images[index - 1])
                             }
-                            alt={`Preview ${index}`} 
+                            alt={`Preview ${index}`}
                             style={{
                               maxWidth: '200px',
                               maxHeight: '150px',
                               marginTop: '10px',
                               objectFit: 'cover'
                             }}
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = '/placeholder.jpg';
-                            }}
+                            onError={handleImageError}
                           />
                         </div>
                       )}
@@ -290,8 +251,8 @@ const FacilityManagement = () => {
                   <button type="submit" className="btn btn-primary">
                     {editingId ? 'Update' : 'Simpan'}
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="btn btn-secondary"
                     onClick={() => setShowModal(false)}
                   >
@@ -327,15 +288,12 @@ const FacilityManagement = () => {
                   <td>{facility.lantai}</td>
                   <td>
                     {facility.image && (
-                      <img 
-                        src={`http://localhost:5000/uploads/fasilitas/${facility.image}`}
-                        alt={facility.nama_fasilitas} 
+                      <img
+                        src={fasilitasImageUrl(facility.image)}
+                        alt={facility.nama_fasilitas}
                         className="facility-image"
                         style={{width: '100px', height: '60px', objectFit: 'cover'}}
-                        onError={(e) => {
-                          e.target.onerror = null; 
-                          e.target.src = 'placeholder.jpg';
-                        }}
+                        onError={handleImageError}
                       />
                     )}
                     {(facility.image2 || facility.image3) && (
@@ -376,22 +334,9 @@ const FacilityManagement = () => {
         <div className="no-data">Tidak ada data fasilitas</div>
       )}
 
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="position-fixed top-0 end-0 p-3" style={{ zIndex: 1050 }}>
-          <div className="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-            <div className="toast-header">
-              <strong className="me-auto">Notifikasi</strong>
-              <button type="button" className="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div className="toast-body">
-              {toastMessage}
-            </div>
-          </div>
-        </div>
-      )}
+      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>
   );
 }
 
-export default FacilityManagement; 
+export default FacilityManagement;

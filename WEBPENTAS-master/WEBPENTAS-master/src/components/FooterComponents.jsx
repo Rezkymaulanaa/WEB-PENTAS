@@ -1,6 +1,4 @@
-// FooterComponents.jsx
-import React from 'react';
-
+import { Link } from 'react-router-dom';
 
 export const FooterComponents = () => {
   return (
@@ -12,7 +10,7 @@ export const FooterComponents = () => {
           <div className="row mt-3">
             <div className="col-md-4 px-5 text-white">
               <img 
-                src="public/logoUnhas.png"
+                src="/logoUnhas.png"
                 alt="Logo PENTAS"
                 style={{
                   width: "100px",
@@ -30,10 +28,16 @@ export const FooterComponents = () => {
               <div className="row">
                 <div className="col-md-4">
                   <h5 className="fw-bold mb-3">Layanan</h5>
-                  <p style={{fontSize: "14px", marginBottom: "8px"}}>Company</p>
-                  <p style={{fontSize: "14px", marginBottom: "8px"}}>Blog</p>
-                  <p style={{fontSize: "14px", marginBottom: "8px"}}>Careers</p>
-                  <p style={{fontSize: "14px", marginBottom: "8px"}}>Pricing</p>
+                  {[
+                    ['/izin-kegiatan', 'Izin Kegiatan'],
+                    ['/fasilitas', 'Fasilitas'],
+                    ['/peminjaman', 'Peminjaman'],
+                    ['/contact', 'Kontak'],
+                  ].map(([to, label]) => (
+                    <p key={to} style={{fontSize: "14px", marginBottom: "8px"}}>
+                      <Link to={to} className="text-white text-decoration-none">{label}</Link>
+                    </p>
+                  ))}
                 </div>
 
                 <div className="col-md-4">
@@ -56,7 +60,7 @@ export const FooterComponents = () => {
             <div className="col-12 px-5 text-white">
               <hr className="mb-3" style={{backgroundColor: "white", opacity: "0.2"}} />
               <div className="d-flex justify-content-between align-items-center">
-                <p style={{fontSize: "14px", marginBottom: "0"}}>© 2024 WEBPENTAS. All rights reserved.</p>
+                <p style={{fontSize: "14px", marginBottom: "0"}}>© {new Date().getFullYear()} SIPANRITA. All rights reserved.</p>
 
                 <div className="d-flex gap-3">
                   <a href="https://www.instagram.com/fmipa.uh/" className="text-white" target="_blank" rel="noopener noreferrer">
@@ -81,7 +85,7 @@ export const FooterComponents = () => {
           </div>
         </div>
       </section>
-       </footer>
+    </footer>
   );
 };
 

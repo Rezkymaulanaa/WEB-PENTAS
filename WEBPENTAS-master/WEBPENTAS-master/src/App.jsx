@@ -1,19 +1,30 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
-import { DetailFasilitas } from './pages/DetailFasilitas';
 import { Login } from './pages/Login';
-import { DashboardAdmin } from './pages/DashboardAdmin';
 import { NavbarComponents } from './components/NavbarComponents';
-import NotificationComponents from './components/NotificationComponents';
-import { PeminjamanPage } from './pages/PeminjamanPage';
-import { DashboardDekan } from './pages/DashboardDekan';
-import { DashboardWakilDekan } from './pages/DashboardWakilDekan';
-import { FooterComponents } from './components/FooterComponents'
-import { FasilitasPage } from './pages/FasilitasPage';
-import { IzinKegiatan } from './pages/IzinKegiatan';
-import { ContactPage } from './pages/ContactPage';
+import { FooterComponents } from './components/FooterComponents';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { DashboardWakilDekan1 } from './pages/DashboardWakilDekan1';
+
+// Halaman dimuat saat dibuka saja (code splitting) agar website lebih ringan
+const DetailFasilitas = lazy(() => import('./pages/DetailFasilitas').then((m) => ({ default: m.DetailFasilitas })));
+const NotificationComponents = lazy(() => import('./components/NotificationComponents'));
+const PeminjamanPage = lazy(() => import('./pages/PeminjamanPage'));
+const FasilitasPage = lazy(() => import('./pages/FasilitasPage'));
+const IzinKegiatan = lazy(() => import('./pages/IzinKegiatan'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const DashboardAdmin = lazy(() => import('./pages/DashboardAdmin').then((m) => ({ default: m.DashboardAdmin })));
+const DashboardDekan = lazy(() => import('./pages/DashboardDekan').then((m) => ({ default: m.DashboardDekan })));
+const DashboardWakilDekan = lazy(() => import('./pages/DashboardWakilDekan').then((m) => ({ default: m.DashboardWakilDekan })));
+const DashboardWakilDekan1 = lazy(() => import('./pages/DashboardWakilDekan1').then((m) => ({ default: m.DashboardWakilDekan1 })));
+
+const Loading = () => (
+  <div className="d-flex justify-content-center align-items-center py-5">
+    <div className="spinner-border" role="status">
+      <span className="visually-hidden">Memuat...</span>
+    </div>
+  </div>
+);
 
 function App() {
   const location = useLocation();
@@ -25,62 +36,78 @@ function App() {
       {/* Navbar */}
       {!isLoginPage && !isDashboardPage && <NavbarComponents />}
 
-      <Routes>
-        {/* Rute Publik */}
-        <Route path="/izin-kegiatan" element={<IzinKegiatan />} />
-        <Route path="/fasilitas" element={<FasilitasPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/detail-fasilitas/:id" element={<DetailFasilitas />} />
-        <Route path="/login" Component={Login} />
-        <Route path="/notifications" Component={NotificationComponents} />
-        <Route path="/peminjaman" Component={PeminjamanPage} />
+      <Suspense fallback={<Loading />}>
+        <Routes>
+          {/* Rute Publik */}
+          <Route path="/fasilitas" element={<FasilitasPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/detail-fasilitas/:id" element={<DetailFasilitas />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/peminjaman" element={<PeminjamanPage />} />
 
-        {/* Rute Dilindungi */}
+          {/* Rute Mahasiswa */}
+          <Route
+            path="/izin-kegiatan"
+            element={
+              <ProtectedRoute allowedRoles={['mahasiswa']}>
+                <IzinKegiatan />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute allowedRoles={['mahasiswa']}>
+                <NotificationComponents />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/dashboard/*"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <DashboardAdmin />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard-dekan/*"
-          element={
-            <ProtectedRoute allowedRoles={['dekan']}>
-              <DashboardDekan />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard-wadek/*"
-          element={
-            <ProtectedRoute allowedRoles={['wakil_dekan']}>
-              <DashboardWakilDekan />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard-wadek1/*"
-          element={
-            <ProtectedRoute allowedRoles={['wakil_dekan1']}>
-              <DashboardWakilDekan1 />
-            </ProtectedRoute>
-          }
-        />
+          {/* Rute Dilindungi */}
+          <Route
+            path="/dashboard/*"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <DashboardAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard-dekan/*"
+            element={
+              <ProtectedRoute allowedRoles={['dekan']}>
+                <DashboardDekan />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard-wadek/*"
+            element={
+              <ProtectedRoute allowedRoles={['wakil_dekan']}>
+                <DashboardWakilDekan />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard-wadek1/*"
+            element={
+              <ProtectedRoute allowedRoles={['wakil_dekan1']}>
+                <DashboardWakilDekan1 />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Route untuk HomePage */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute allowedRoles={['mahasiswa', 'admin']}>
-              <HomePage />
-            </ProtectedRoute>
-          }
-        />
-        
-      </Routes>
+          {/* Route untuk HomePage */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute allowedRoles={['mahasiswa', 'admin']}>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
 
       {/* Footer */}
       {!isLoginPage && !isDashboardPage && <FooterComponents />}

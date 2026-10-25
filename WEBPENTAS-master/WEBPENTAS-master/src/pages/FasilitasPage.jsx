@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api, { fasilitasImageUrl, handleImageError } from '../utils/api';
 
 export const FasilitasPage = () => {
   const [facilities, setFacilities] = useState([]);
@@ -9,7 +9,7 @@ export const FasilitasPage = () => {
   useEffect(() => {
     const fetchFacilities = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/fasilitas');
+        const response = await api.get('/fasilitas');
         setFacilities(response.data);
       } catch (error) {
         console.error('Error fetching fasilitas:', error);
@@ -39,18 +39,16 @@ export const FasilitasPage = () => {
                 <div className="card h-100" style={{ maxWidth: '320px', margin: '0 auto' }}>
                   <div className="card-img-wrapper" style={{ height: '180px' }}>
                     <img
-                      src={`http://localhost:5000/uploads/fasilitas/${facility.image}`}
+                      src={fasilitasImageUrl(facility.image)}
                       className="card-img-top"
                       alt={facility.nama_fasilitas}
+                      loading="lazy"
                       style={{
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
                       }}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'placeholder.jpg'; // Ganti dengan path gambar placeholder
-                      }}
+                      onError={handleImageError}
                     />
                   </div>
                   <div className="card-body d-flex flex-column bg-white">

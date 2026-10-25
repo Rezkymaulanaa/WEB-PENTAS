@@ -2,199 +2,122 @@ from flask import Blueprint, request, jsonify, current_app
 from app import db
 from app.models.fasilitas import Fasilitas
 from app.models.peminjaman import Peminjaman
-from werkzeug.utils import secure_filename
-import os
-from datetime import datetime
-from sqlalchemy import text
-
+from app.helpers import EKSTENSI_GAMBAR, ValidasiError, ambil_field, hapus_file, simpan_file
+from app.security import ADMIN, DEKAN, login_required
 
 fasilitas_bp = Blueprint('fasilitas', __name__)
 
-# Tambahkan konfigurasi upload
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+KOLOM_GAMBAR = ['image', 'image2', 'image3']   # nama kolom di database
+FIELD_GAMBAR = ['image1', 'image2', 'image3']  # nama field dari form frontend
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def _data_fasilitas(f):
+    return {
+        'id': f.id,
+        'nama_fasilitas': f.nama_fasilitas,
+        'image': f.image,
+        'image2': f.image2,
+        'image3': f.image3,
+        'kapasitas': f.kapasitas,
+        'gedung': f.gedung,
+        'lantai': f.lantai,
+        'created_at': f.created_at.strftime('%Y-%m-%d %H:%M:%S') if f.created_at else None
+    }
+
+
+def _ambil_data_form():
+    data = ambil_field(request.form, ['nama_fasilitas', 'kapasitas', 'gedung', 'lantai'])
+    try:
+        data['kapasitas'] = int(data['kapasitas'])
+    except ValueError:
+        raise ValidasiError('Kapasitas harus berupa angka')
+    if data['kapasitas'] <= 0:
+        raise ValidasiError('Kapasitas harus lebih dari 0')
+    return data
+
 
 # Get semua fasilitas
 @fasilitas_bp.route('/fasilitas', methods=['GET'])
 def get_all_fasilitas():
-    try:
-        fasilitas = Fasilitas.query.all()
-        return jsonify([{
-            'id': f.id,
-            'nama_fasilitas': f.nama_fasilitas,
-            'image': f.image,
-            'image2': f.image2,
-            'image3': f.image3,
-            'kapasitas': f.kapasitas,
-            'gedung': f.gedung,  # Menambahkan kolom gedung
-            'lantai': f.lantai,  # Menambahkan kolom lantai
-            'created_at': f.created_at
-        } for f in fasilitas])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify([_data_fasilitas(f) for f in Fasilitas.query.all()])
+
 
 # Get fasilitas by ID
 @fasilitas_bp.route('/fasilitas/<int:id>', methods=['GET'])
 def get_fasilitas(id):
-    try:
-        fasilitas = Fasilitas.query.get_or_404(id)
-        return jsonify({
-            'id': fasilitas.id,
-            'nama_fasilitas': fasilitas.nama_fasilitas,
-            'image': fasilitas.image,
-            'image2': fasilitas.image2,
-            'image3': fasilitas.image3,
-            'kapasitas': fasilitas.kapasitas,
-            'gedung': fasilitas.gedung,  
-            'lantai': fasilitas.lantai,  
-            'created_at': fasilitas.created_at
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify(_data_fasilitas(db.get_or_404(Fasilitas, id)))
 
 
 # Tambah fasilitas baru
 @fasilitas_bp.route('/fasilitas', methods=['POST'])
+@login_required(ADMIN, DEKAN)
 def add_fasilitas():
-    try:
-        data = request.form
-        
-        # Ambil file gambar dari request
-        image1 = request.files.get('image1')
-        image2 = request.files.get('image2')
-        image3 = request.files.get('image3')
-        
-        filenames = []
-        
-        # Fungsi untuk generate unique filename
-        def get_unique_filename(original_filename):
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            name, ext = os.path.splitext(original_filename)
-            return f"{name}_{timestamp}{ext}"
-        
-        # Proses setiap gambar
-        for img in [image1, image2, image3]:
-            if img and allowed_file(img.filename):
-                unique_filename = get_unique_filename(secure_filename(img.filename))
-                file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
-                img.save(file_path)
-                filenames.append(unique_filename)
-            else:
-                filenames.append(None)
-                
-        new_fasilitas = Fasilitas(
-            nama_fasilitas=data['nama_fasilitas'],
-            kapasitas=data['kapasitas'],
-            gedung=data['gedung'],  # Menambahkan kolom gedung
-            lantai=data['lantai'],  # Menambahkan kolom lantai
-            image=filenames[0],
-            image2=filenames[1],
-            image3=filenames[2]
-        )
-        
-        db.session.add(new_fasilitas)
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Fasilitas berhasil ditambahkan',
-            'id': new_fasilitas.id
-        }), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+    data = _ambil_data_form()
+    folder = current_app.config['FASILITAS_FOLDER']
+
+    new_fasilitas = Fasilitas(**data)
+    for kolom, field in zip(KOLOM_GAMBAR, FIELD_GAMBAR):
+        file = request.files.get(field)
+        if file and file.filename:
+            setattr(new_fasilitas, kolom, simpan_file(file, folder, EKSTENSI_GAMBAR))
+
+    db.session.add(new_fasilitas)
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Fasilitas berhasil ditambahkan',
+        'id': new_fasilitas.id
+    }), 201
+
 
 # Update fasilitas
 @fasilitas_bp.route('/fasilitas/<int:id>', methods=['PUT'])
+@login_required(ADMIN, DEKAN)
 def update_fasilitas(id):
-    try:
-        fasilitas = Fasilitas.query.get_or_404(id)
-        data = request.form
-        
-        # Update data teks
-        fasilitas.nama_fasilitas = data['nama_fasilitas']
-        fasilitas.kapasitas = data['kapasitas']
-        fasilitas.gedung = data['gedung']  # Menambahkan update untuk gedung
-        fasilitas.lantai = data['lantai']  # Menambahkan update untuk lantai
-        
-        # Fungsi untuk generate unique filename
-        def get_unique_filename(original_filename):
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            name, ext = os.path.splitext(original_filename)
-            return f"{name}_{timestamp}{ext}"
-        
-        # Update gambar jika ada
-        for i, field in enumerate(['image1', 'image2', 'image3']):
-            file = request.files.get(field)
-            if file and allowed_file(file.filename):
-                # Hapus file lama jika ada
-                old_image = getattr(fasilitas, f'image{i+1 if i > 0 else ""}')
-                if old_image:
-                    old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], old_image)
-                    if os.path.exists(old_path):
-                        os.remove(old_path)
-                
-                # Simpan file baru
-                unique_filename = get_unique_filename(secure_filename(file.filename))
-                file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
-                file.save(file_path)
-                
-                # Update database
-                if i == 0:
-                    fasilitas.image = unique_filename
-                elif i == 1:
-                    fasilitas.image2 = unique_filename
-                else:
-                    fasilitas.image3 = unique_filename
-        
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Fasilitas berhasil diupdate',
-            'id': fasilitas.id
-        }), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+    fasilitas = db.get_or_404(Fasilitas, id)
+    data = _ambil_data_form()
+    folder = current_app.config['FASILITAS_FOLDER']
+
+    for key, value in data.items():
+        setattr(fasilitas, key, value)
+
+    # Ganti gambar hanya jika ada file baru yang diupload
+    file_lama = []
+    for kolom, field in zip(KOLOM_GAMBAR, FIELD_GAMBAR):
+        file = request.files.get(field)
+        if file and file.filename:
+            file_lama.append(getattr(fasilitas, kolom))
+            setattr(fasilitas, kolom, simpan_file(file, folder, EKSTENSI_GAMBAR))
+
+    db.session.commit()
+
+    # Hapus file lama setelah data tersimpan
+    for filename in file_lama:
+        hapus_file(folder, filename)
+
+    return jsonify({
+        'message': 'Fasilitas berhasil diupdate',
+        'id': fasilitas.id
+    }), 200
+
 
 # Hapus fasilitas
 @fasilitas_bp.route('/fasilitas/<int:id>', methods=['DELETE'])
+@login_required(ADMIN, DEKAN)
 def delete_fasilitas(id):
-    try:
-        # Cek apakah fasilitas digunakan di tabel peminjaman menggunakan ORM
-        peminjaman_check = db.session.query(Peminjaman).filter(Peminjaman.id_fasilitas == id).count()
+    fasilitas = db.get_or_404(Fasilitas, id)
 
-        # Jika ada peminjaman terkait, blokir penghapusan
-        if peminjaman_check > 0:
-            return jsonify({
-                'error': 'Fasilitas tidak dapat dihapus karena sedang digunakan dalam peminjaman'
-            }), 400
+    # Jika ada peminjaman terkait, blokir penghapusan
+    if Peminjaman.query.filter_by(id_fasilitas=id).count() > 0:
+        return jsonify({
+            'error': 'Fasilitas tidak dapat dihapus karena sedang digunakan dalam peminjaman'
+        }), 400
 
-        # Jika tidak ada peminjaman, lanjutkan dengan penghapusan fasilitas
-        fasilitas = Fasilitas.query.get_or_404(id)
+    gambar = [getattr(fasilitas, kolom) for kolom in KOLOM_GAMBAR]
+    db.session.delete(fasilitas)
+    db.session.commit()
 
-        # Hapus gambar jika ada
-        if fasilitas.image:
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], fasilitas.image)
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        if fasilitas.image2:
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], fasilitas.image2)
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        if fasilitas.image3:
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], fasilitas.image3)
-            if os.path.exists(file_path):
-                os.remove(file_path)
+    for filename in gambar:
+        hapus_file(current_app.config['FASILITAS_FOLDER'], filename)
 
-        # Hapus fasilitas
-        db.session.delete(fasilitas)
-        db.session.commit()
-
-        return jsonify({'message': 'Fasilitas berhasil dihapus'})
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error saat menghapus fasilitas: {str(e)}")  # Tambahkan log error
-        return jsonify({'error': 'Terjadi kesalahan saat menghapus fasilitas'}), 500
+    return jsonify({'message': 'Fasilitas berhasil dihapus'})

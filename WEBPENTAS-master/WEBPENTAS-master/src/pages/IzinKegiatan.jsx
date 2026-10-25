@@ -1,252 +1,126 @@
-import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import { useParams } from 'react-router-dom'; // Pastikan untuk import useParams jika Anda memerlukan params dari URL
+import { useState, useRef } from "react";
+import { Link } from "react-router-dom";
+import api, { getErrorMessage } from "../utils/api";
+import { Toast } from "../components/common";
+
+const FORM_KOSONG = {
+  nama_organisasi: "",
+  penanggung_jawab: "",
+  kontak_pj: "",
+  keperluan: "",
+  email: "",
+};
 
 export const IzinKegiatan = () => {
-  const { id } = useParams();
-
-  // State untuk menyimpan data form
-  const [formData, setFormData] = useState({
-    nama_organisasi: '',
-    penanggung_jawab: '',
-    kontak_pj: '',
-    keperluan: '',
-    email: '',
-    surat_perizinan: null,
-    komentar: ''
-  });
-
-  // State untuk status form, pesan error, dan user
+  const [formData, setFormData] = useState(FORM_KOSONG);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [userId, setUserId] = useState(null); // Status pengguna
-  const [error, setError] = useState('');
-  const [suratPerizinan, setSuratPerizinan] = useState(null); // File surat izin
-  const [toastMessage, setToastMessage] = useState(null); // State untuk pesan toast
-
-  // Ref untuk file input
+  const [error, setError] = useState("");
+  const [suratPerizinan, setSuratPerizinan] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Fetch data user pada saat login atau mount
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const userEmail = localStorage.getItem('userEmail');  // Ambil email user dari localStorage
-        if (userEmail) {
-          const response = await axios.get('http://localhost:5000/users', {
-            params: { email: userEmail }
-          });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
-          if (response.data && Array.isArray(response.data)) {
-            const user = response.data.find(u => u.email === userEmail);
-            if (user) {
-              setUserId(user.id);  // Menyimpan userId jika ditemukan
-            } else {
-              setError('Data pengguna tidak ditemukan');
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Gagal mengambil data pengguna:', err);
-        setError('Terjadi kesalahan saat mengambil data pengguna');
-      }
-    };
-
-    fetchUserData();
-  }, []);  // Efek berjalan hanya sekali pada saat mount
-
-  // Menangani submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setToastMessage('');
-
-    if (!userId) {
-      setError('Silakan login terlebih dahulu');
-      setLoading(false);
-      return;
-    }
+    setError("");
 
     try {
       const formDataToSend = new FormData();
-      formDataToSend.append('id_user', String(userId));
-
-      // Menambahkan data form ke FormData
-      Object.keys(formData).forEach(key => {
-        if (key !== 'id_user') formDataToSend.append(key, formData[key]);
-      });
-
-      // Menambahkan file surat perizinan jika ada
+      Object.entries(formData).forEach(([key, value]) => formDataToSend.append(key, value));
       if (suratPerizinan) {
-        formDataToSend.append('surat_perizinan', suratPerizinan);
+        formDataToSend.append("surat_perizinan", suratPerizinan);
       }
 
-      const response = await axios.post('http://localhost:5000/izin-kegiatan', formDataToSend, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      await api.post("/izin-kegiatan", formDataToSend);
+      setToastMessage("Permohonan izin kegiatan Anda telah dikirim");
 
-      if (response.data.message) {
-        setToastMessage('Permohonan Anda telah dikirim');
-        
-        // Reset form setelah permohonan berhasil dikirim
-        setFormData({
-          nama_organisasi: '',
-          penanggung_jawab: '',
-          kontak_pj: '',
-          keperluan: '',
-          email: '',
-          surat_perizinan: null,
-          komentar: ''
-        });
-
-        // Reset file input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''; // Reset file input setelah submit
-        }
-        setSuratPerizinan(null); // Reset surat perizinan state juga
+      // Reset form setelah permohonan berhasil dikirim
+      setFormData(FORM_KOSONG);
+      setSuratPerizinan(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
     } catch (err) {
-      console.error('Error detail:', err.response?.data);
-      setError(err.response?.data?.error || 'Terjadi kesalahan saat mengajukan permohonan izin');
+      setError(getErrorMessage(err, "Terjadi kesalahan saat mengajukan permohonan izin"));
     } finally {
       setLoading(false);
     }
   };
 
-  // Menangani perubahan pada file surat perizinan
-  const handleFileChange = (e) => {
-    setSuratPerizinan(e.target.files[0]);
-  };
+  const fields = [
+    ["nama_organisasi", "Nama Organisasi", "text"],
+    ["penanggung_jawab", "Penanggung Jawab", "text"],
+    ["kontak_pj", "Kontak Penanggung Jawab", "tel"],
+    ["email", "Email", "email"],
+    ["keperluan", "Keperluan / Nama Kegiatan", "text"],
+  ];
 
-  // Auto-hide toast setelah 5 detik
-  useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => {
-        setToastMessage(null); // Menghilangkan toast setelah 5 detik
-      }, 5000);
-
-      return () => clearTimeout(timer); // Bersihkan timer saat component di-unmount atau toastMessage berubah
-    }
-  }, [toastMessage]);
-
-  // Render form
   return (
     <div className="container my-5">
-      <h2 className="text-center mb-4 fw-semibold">FORM PERMOHONAN IZIN KEGIATAN</h2>
+      <h2 className="text-center mb-4 fw-semibold">
+        FORM PERMOHONAN IZIN KEGIATAN
+      </h2>
+      <div className="alert alert-info">
+        Izin kegiatan diperiksa oleh Dekan dan Wakil Dekan 1. Setelah <strong>disetujui</strong>, Anda dapat
+        mengajukan peminjaman ruangan/fasilitas melalui halaman <Link to="/fasilitas">Fasilitas</Link>.
+        Pantau statusnya di halaman <Link to="/notifications">Notifikasi</Link>.
+      </div>
       <div className="card">
         <div className="card-body">
-          {/* Form */}
           <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label htmlFor="namaOrganisasi" className="form-label">Nama Organisasi</label>
-              <input
-                type="text"
-                className="form-control"
-                id="namaOrganisasi"
-                value={formData.nama_organisasi}
-                onChange={(e) => setFormData({ ...formData, nama_organisasi: e.target.value })}
-                required
-              />
-            </div>
+            {fields.map(([name, label, type]) => (
+              <div className="mb-3" key={name}>
+                <label htmlFor={name} className="form-label">
+                  {label}
+                </label>
+                <input
+                  type={type}
+                  className="form-control"
+                  id={name}
+                  name={name}
+                  value={formData[name]}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+            ))}
 
             <div className="mb-3">
-              <label htmlFor="penanggungJawab" className="form-label">Penanggung Jawab</label>
-              <input
-                type="text"
-                className="form-control"
-                id="penanggungJawab"
-                value={formData.penanggung_jawab}
-                onChange={(e) => setFormData({ ...formData, penanggung_jawab: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="mb-3">
-              <label htmlFor="kontakPj" className="form-label">Kontak Penanggung Jawab</label>
-              <input
-                type="text"
-                className="form-control"
-                id="kontakPj"
-                value={formData.kontak_pj}
-                onChange={(e) => setFormData({ ...formData, kontak_pj: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="mb-3">
-              <label htmlFor="email" className="form-label">Email</label>
-              <input
-                type="email"
-                className="form-control"
-                id="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="mb-3">
-              <label htmlFor="keperluan" className="form-label">Keperluan</label>
-              <input
-                type="text"
-                className="form-control"
-                id="keperluan"
-                value={formData.keperluan}
-                onChange={(e) => setFormData({ ...formData, keperluan: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="mb-3">
-              <label htmlFor="suratPerizinan" className="form-label">Surat Perizinan</label>
+              <label htmlFor="suratPerizinan" className="form-label">
+                Surat Perizinan (PDF/JPG/PNG, maks. 16MB)
+              </label>
               <input
                 type="file"
                 className="form-control"
                 id="suratPerizinan"
-                onChange={handleFileChange}
-                ref={fileInputRef}  // Set ref pada file input
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => setSuratPerizinan(e.target.files[0])}
+                ref={fileInputRef}
                 required
               />
             </div>
 
+            {error && <div className="alert alert-danger">{error}</div>}
+
             <div className="d-grid gap-2 mb-3">
-              <button type="submit" className="btn btn-danger" disabled={loading}>
-                {loading ? 'Mengirim...' : 'Ajukan Permohonan'}
+              <button
+                type="submit"
+                className="btn btn-secondary"
+                disabled={loading}
+              >
+                {loading ? "Mengirim..." : "Ajukan Permohonan"}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div
-          className="position-fixed top-0 end-0 p-3"
-          style={{ zIndex: 1050 }}
-        >
-          <div
-            className="toast show"
-            role="alert"
-            aria-live="assertive"
-            aria-atomic="true"
-          >
-            <div className="toast-header">
-              <strong className="me-auto">Notifikasi</strong>
-              <button
-                type="button"
-                className="btn-close"
-                data-bs-dismiss="toast"
-                aria-label="Close"
-              ></button>
-            </div>
-            <div className="toast-body">{toastMessage}</div>
-          </div>
-        </div>
-      )}
-
-      {/* Error Message */}
-      {error && <div className="alert alert-danger mt-3">{error}</div>}
+      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>
   );
 };

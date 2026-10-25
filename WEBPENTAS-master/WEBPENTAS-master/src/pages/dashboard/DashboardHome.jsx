@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { FaUsers, FaBuilding, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
-import axios from 'axios';
+import api from '../../utils/api';
+import { StatusBadge } from '../../components/common';
+import { formatTanggal } from '../../utils/format';
 
 function DashboardHome() {
   const [stats, setStats] = useState({
@@ -19,9 +21,9 @@ function DashboardHome() {
     const fetchData = async () => {
       try {
         const [usersRes, facilitiesRes, peminjamanRes] = await Promise.all([
-          axios.get('http://localhost:5000/users'),
-          axios.get('http://localhost:5000/fasilitas'),
-          axios.get('http://localhost:5000/peminjaman')
+          api.get('/users'),
+          api.get('/fasilitas'),
+          api.get('/peminjaman')
         ]);
 
         setStats({
@@ -32,7 +34,8 @@ function DashboardHome() {
         });
 
         setRecentData({
-          peminjaman: peminjamanRes.data.slice(-5).reverse(),
+          // Data peminjaman dari server sudah terurut dari yang terbaru
+          peminjaman: peminjamanRes.data.slice(0, 5),
           facilities: facilitiesRes.data.slice(-5).reverse()
         });
       } catch (error) {
@@ -46,7 +49,7 @@ function DashboardHome() {
   return (
     <div className="dashboard-content">
       <h1 className="dashboard-title">Dashboard Overview</h1>
-      
+
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon users">
@@ -57,7 +60,7 @@ function DashboardHome() {
             <div className="value">{stats.totalUsers}</div>
           </div>
         </div>
-        
+
         <div className="stat-card">
           <div className="stat-icon facilities">
             <FaBuilding />
@@ -67,7 +70,7 @@ function DashboardHome() {
             <div className="value">{stats.totalFacilities}</div>
           </div>
         </div>
-        
+
         <div className="stat-card">
           <div className="stat-icon active">
             <FaCheckCircle />
@@ -99,10 +102,8 @@ function DashboardHome() {
               <div key={pinjam.id} className="peminjaman-item">
                 <div className="peminjaman-info">
                   <h4>{pinjam.nama_organisasi}</h4>
-                  <p>Tanggal: {new Date(pinjam.tanggal_mulai).toLocaleDateString()}</p>
-                  <span className={`status-badge ${pinjam.status}`}>
-                    {pinjam.status}
-                  </span>
+                  <p>{pinjam.nama_fasilitas} &middot; {formatTanggal(pinjam.tanggal_mulai)}</p>
+                  <StatusBadge status={pinjam.status} />
                 </div>
               </div>
             ))}
@@ -129,4 +130,4 @@ function DashboardHome() {
   );
 }
 
-export default DashboardHome; 
+export default DashboardHome;

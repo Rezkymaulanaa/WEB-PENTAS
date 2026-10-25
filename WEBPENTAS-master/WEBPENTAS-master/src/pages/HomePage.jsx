@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api, { fasilitasImageUrl, handleImageError } from '../utils/api';
 import { Link } from 'react-router-dom';
 
 export const HomePage = () => {
@@ -9,7 +9,7 @@ export const HomePage = () => {
   useEffect(() => {
     const fetchFacilities = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/fasilitas');
+        const response = await api.get('/fasilitas');
         
         // Filter dan ambil hanya 3 fasilitas terbaru
         const sortedFacilities = Array.isArray(response.data)
@@ -32,8 +32,8 @@ export const HomePage = () => {
     <div>
           <div className="welcome-text position-absolute my-5 top-50 start-50 translate-middle text-center text-light px-5 py-3 rounded shadow"
           style={{ background:'rgba(255, 255, 255, 0.2)', backdropFilter:'blur(10px)' }}>
-            <p>SELAMAT DATANG DI PENTAS</p>
-            <h1 className='fw-bold'>WEBSITE PEMINJAMAN FASILITAS FMIPA UNHAS</h1>
+            <p>SELAMAT DATANG DI SIPANRITA</p>
+            <h1 className='fw-bold'>SISTEM PENGELOLAAN REKOMENDASI KEGIATAN DAN PEMINJAMAN FASILITAS</h1>
           </div>
         {/* CARAUSEL */}
                 <div id="carouselExampleIndicators" className="carousel slide fixed-size-carousel">
@@ -52,13 +52,13 @@ export const HomePage = () => {
                       />
                     </div>
                     <div className="carousel-item">
-                      <img src="public/sb3.jpg" className="d-block w-100" alt="..." />
+                      <img src="/sb3.jpg" className="d-block w-100" alt="..." />
                     </div>
                     <div className="carousel-item">
-                      <img src="public/sb2.jpg" className="d-block w-100" alt="..." />
+                      <img src="/sb2.jpg" className="d-block w-100" alt="..." />
                     </div>
                     <div className="carousel-item">
-                      <img src="public/sb1.jpg" className="d-block w-100" alt="..." />
+                      <img src="/sb1.jpg" className="d-block w-100" alt="..." />
                     </div>
                 </div>
                 <button className="carousel-control-prev" type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide="prev">
@@ -83,18 +83,16 @@ export const HomePage = () => {
                 <div className="card h-100" style={{ maxWidth: '320px', margin: '0 auto' }}>
                   <div className="card-img-wrapper" style={{ height: '180px' }}>
                     <img
-                      src={`http://localhost:5000/uploads/fasilitas/${facility.image}`}
+                      src={fasilitasImageUrl(facility.image)}
                       className="card-img-top"
                       alt={facility.nama_fasilitas}
+                      loading="lazy"
                       style={{
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
                       }}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'placeholder.jpg'; // Fallback image jika gagal memuat
-                      }}
+                      onError={handleImageError}
                     />
                   </div>
                   <div className="card-body d-flex flex-column bg-white">

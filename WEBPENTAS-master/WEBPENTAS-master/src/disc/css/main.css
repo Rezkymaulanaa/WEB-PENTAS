@@ -1212,3 +1212,6 @@
 }
 
 
+
+/* Status selesai (peminjaman yang waktunya sudah lewat) */
+.status-badge.selesai { background: #e3f2fd; color: #1565c0; }

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import '../disc/css/main.css';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import api from '../utils/api';
+import { DASHBOARD_PATH, saveSession } from '../utils/auth';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -30,43 +30,16 @@ export const Login = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/login', { email, password });
-      const { role } = response.data;
+      const response = await api.post('/login', { email, password });
 
-      // Simpan data di localStorage
-      localStorage.setItem('userRole', role);
-      localStorage.setItem('userEmail', email);
-      localStorage.setItem('isLoggedIn', 'true');
-
-      // Reset form
-      setEmail('');
-      setPassword('');
-
-      // Tampilkan alert sukses
-      alert('Login berhasil!');
+      // Simpan token dan data user di localStorage
+      saveSession(response.data);
 
       // Redirect berdasarkan role
-      switch (role) {
-        case 'admin':
-          navigate('/dashboard');
-          break;
-        case 'dekan':
-          navigate('/dashboard-dekan');
-          break;
-        case 'wakil_dekan':
-          navigate('/dashboard-wadek');
-          break;
-        case 'wakil_dekan1':
-          navigate('/dashboard-wadek1');
-          break;
-        default:
-          navigate('/');
-      }       
+      navigate(DASHBOARD_PATH[response.data.role] || '/', { replace: true });
     } catch (err) {
-      // Tampilkan error
-      const message = err.response?.data?.message || 'Terjadi kesalahan. Silakan coba lagi.';
+      const message = err.response?.data?.message || 'Tidak dapat terhubung ke server. Silakan coba lagi.';
       setError(message);
-      alert(`Login gagal: ${message}`);
     } finally {
       setIsLoading(false);
     }
@@ -106,6 +79,7 @@ export const Login = () => {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
                     position: 'absolute',
@@ -127,7 +101,7 @@ export const Login = () => {
             </button>
 
             <div className="forgot-password">
-              <a href="#">Forgot Password</a>
+              <span className="text-muted small">Lupa password? Hubungi admin fakultas.</span>
             </div>
 
             {error && <div className="error-message">{error}</div>}

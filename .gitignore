@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# File rahasia (salin dari .env.example)
+.env
+!.env.example
+
+# File yang diupload pengguna (berisi data pribadi mahasiswa)
+WEBPENTAS-backend/uploads/
+WEBPENTAS-backend/instance/
+
+# Node
+node_modules/
+dist/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Salinan backend lama (duplikat dari WEBPENTAS-backend)
+WEBPENTAS/
