@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { Fragment, lazy, Suspense } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { Login } from './pages/Login';
@@ -30,12 +30,16 @@ function App() {
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
   const isDashboardPage = location.pathname.startsWith('/dashboard');
+  // Halaman login & dashboard sudah punya elemen <main> sendiri
+  const MainWrapper = isLoginPage || isDashboardPage ? Fragment : 'main';
+  const mainProps = MainWrapper === 'main' ? { id: 'konten-utama', tabIndex: -1 } : {};
 
   return (
     <div>
       {/* Navbar */}
       {!isLoginPage && !isDashboardPage && <NavbarComponents />}
 
+      <MainWrapper {...mainProps}>
       <Suspense fallback={<Loading />}>
         <Routes>
           {/* Rute Publik */}
@@ -108,6 +112,7 @@ function App() {
           />
         </Routes>
       </Suspense>
+      </MainWrapper>
 
       {/* Footer */}
       {!isLoginPage && !isDashboardPage && <FooterComponents />}

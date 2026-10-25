@@ -198,33 +198,34 @@ export const DetailFasilitas = () => {
     ? PILIHAN_JAM
     : PILIHAN_JAM.filter((jam) => !formData.waktu_mulai || jam > formData.waktu_mulai);
 
+  // Header memakai foto fasilitas itu sendiri, cadangannya foto gedung Unhas
+  const fotoHeader = images[0] || '/gedung-rektorat.jpg';
+
   return (
     <div>
-      {/* HEADER DETAIL FASILITAS */}
-      <div className="row">
-        <div className="fixed-size position-relative">
-          <img
-            src="https://sci.unhas.ac.id/wp-content/uploads/2023/05/Rektorat-Unhas1.png"
-            alt="Fakultas MIPA"
-            className="detail-image"
-          />
-          <div className="position-absolute top-50 start-50 translate-middle text-center text-light px-5 py-3 rounded shadow"
-          style={{ background:'rgba(255, 255, 255, 0.2)', backdropFilter:'blur(10px)' }}>
-            <h1 className="fw-bold mb-3 text-uppercase">
-              {facility ? facility.nama_fasilitas : 'Loading...'}
-            </h1>
-            <button className="btn btn-danger" onClick={handleBookingClick}>
-              Booking
-            </button>
+      <section className="page-banner" style={{ backgroundImage: `url("${fotoHeader}")` }}>
+        <div className="container">
+          <div>
+            <Link to="/fasilitas" className="breadcrumb-link">← Semua fasilitas</Link>
+            <h1 className="mt-2">{facility ? facility.nama_fasilitas : 'Memuat...'}</h1>
+            {facility && (
+              <p>
+                {[facility.gedung, facility.lantai && `Lantai ${facility.lantai}`, `Kapasitas ${facility.kapasitas} orang`]
+                  .filter(Boolean).join(' · ')}
+              </p>
+            )}
           </div>
+          <button className="btn btn-primary btn-lg" onClick={handleBookingClick} disabled={!facility}>
+            <i className="bi bi-calendar-plus" aria-hidden="true"></i> Ajukan peminjaman
+          </button>
         </div>
-      </div>
+      </section>
 
       {/* Modal Form Peminjaman */}
-      <Modal show={showForm} onHide={() => setShowForm(false)} size="lg">
+      <Modal show={showForm} onHide={() => setShowForm(false)} size="lg" aria-labelledby="judul-form-peminjaman">
         <Modal.Header closeButton>
-          <Modal.Title className="fw-bold">
-            Formulir Peminjaman {facility?.nama_fasilitas}
+          <Modal.Title id="judul-form-peminjaman">
+            Peminjaman {facility?.nama_fasilitas}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -240,12 +241,12 @@ export const DetailFasilitas = () => {
               {error && <div className="alert alert-danger">{error}</div>}
 
               {/* 1. Kegiatan */}
-              <h6 className="fw-bold text-uppercase text-muted small mb-3">1. Kegiatan</h6>
+              <h3 className="form-section-title">1. Kegiatan</h3>
               <div className="mb-3">
-                <label className="form-label">Izin kegiatan yang sudah disetujui</label>
+                <label htmlFor="bk-id_izin_kegiatan" className="form-label">Izin kegiatan yang sudah disetujui</label>
                 <select
                   className="form-select"
-                  name="id_izin_kegiatan"
+                  id="bk-id_izin_kegiatan" name="id_izin_kegiatan"
                   value={formData.id_izin_kegiatan}
                   onChange={handleInputChange}
                   required
@@ -262,22 +263,22 @@ export const DetailFasilitas = () => {
 
               <div className="row mb-4">
                 <div className="col-md-6 mb-3 mb-md-0">
-                  <label className="form-label">Nama Organisasi</label>
+                  <label htmlFor="bk-nama_organisasi" className="form-label">Nama Organisasi</label>
                   <input
                     type="text"
                     className="form-control"
-                    name="nama_organisasi"
+                    id="bk-nama_organisasi" name="nama_organisasi"
                     value={formData.nama_organisasi}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label">Keperluan Peminjaman</label>
+                  <label htmlFor="bk-keperluan" className="form-label">Keperluan Peminjaman</label>
                   <input
                     type="text"
                     className="form-control"
-                    name="keperluan"
+                    id="bk-keperluan" name="keperluan"
                     value={formData.keperluan}
                     onChange={handleInputChange}
                     placeholder="Contoh: Seminar Nasional"
@@ -287,14 +288,14 @@ export const DetailFasilitas = () => {
               </div>
 
               {/* 2. Jadwal */}
-              <h6 className="fw-bold text-uppercase text-muted small mb-3">2. Jadwal Peminjaman</h6>
+              <h3 className="form-section-title">2. Jadwal Peminjaman</h3>
               <div className="row mb-2">
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">{multiHari ? 'Tanggal Mulai' : 'Tanggal'}</label>
+                  <label htmlFor="bk-tanggal_mulai" className="form-label">{multiHari ? 'Tanggal Mulai' : 'Tanggal'}</label>
                   <input
                     type="date"
                     className="form-control"
-                    name="tanggal_mulai"
+                    id="bk-tanggal_mulai" name="tanggal_mulai"
                     value={formData.tanggal_mulai}
                     min={hariIni()}
                     onChange={handleInputChange}
@@ -303,11 +304,11 @@ export const DetailFasilitas = () => {
                 </div>
                 {multiHari && (
                   <div className="col-md-6 mb-3">
-                    <label className="form-label">Tanggal Selesai</label>
+                    <label htmlFor="bk-tanggal_selesai" className="form-label">Tanggal Selesai</label>
                     <input
                       type="date"
                       className="form-control"
-                      name="tanggal_selesai"
+                      id="bk-tanggal_selesai" name="tanggal_selesai"
                       value={formData.tanggal_selesai}
                       min={formData.tanggal_mulai || hariIni()}
                       onChange={handleInputChange}
@@ -334,10 +335,10 @@ export const DetailFasilitas = () => {
 
               <div className="row mb-3">
                 <div className="col-6">
-                  <label className="form-label">Jam Mulai</label>
+                  <label htmlFor="bk-waktu_mulai" className="form-label">Jam Mulai</label>
                   <select
                     className="form-select"
-                    name="waktu_mulai"
+                    id="bk-waktu_mulai" name="waktu_mulai"
                     value={formData.waktu_mulai}
                     onChange={handleInputChange}
                     required
@@ -349,10 +350,10 @@ export const DetailFasilitas = () => {
                   </select>
                 </div>
                 <div className="col-6">
-                  <label className="form-label">Jam Selesai</label>
+                  <label htmlFor="bk-waktu_selesai" className="form-label">Jam Selesai</label>
                   <select
                     className="form-select"
-                    name="waktu_selesai"
+                    id="bk-waktu_selesai" name="waktu_selesai"
                     value={formData.waktu_selesai}
                     onChange={handleInputChange}
                     required
@@ -392,14 +393,14 @@ export const DetailFasilitas = () => {
               ) : null}
 
               {/* 3. Penanggung jawab */}
-              <h6 className="fw-bold text-uppercase text-muted small mb-3 mt-4">3. Penanggung Jawab</h6>
+              <h3 className="form-section-title">3. Penanggung Jawab</h3>
               <div className="row mb-3">
                 <div className="col-md-4 mb-3 mb-md-0">
-                  <label className="form-label">Nama</label>
+                  <label htmlFor="bk-penanggung_jawab" className="form-label">Nama</label>
                   <input
                     type="text"
                     className="form-control"
-                    name="penanggung_jawab"
+                    id="bk-penanggung_jawab" name="penanggung_jawab"
                     value={formData.penanggung_jawab}
                     onChange={handleInputChange}
                     placeholder="Nama Lengkap"
@@ -407,11 +408,11 @@ export const DetailFasilitas = () => {
                   />
                 </div>
                 <div className="col-md-4 mb-3 mb-md-0">
-                  <label className="form-label">No. HP / WhatsApp</label>
+                  <label htmlFor="bk-kontak_pj" className="form-label">No. HP / WhatsApp</label>
                   <input
                     type="tel"
                     className="form-control"
-                    name="kontak_pj"
+                    id="bk-kontak_pj" name="kontak_pj"
                     value={formData.kontak_pj}
                     onChange={handleInputChange}
                     placeholder="08123456789"
@@ -420,11 +421,11 @@ export const DetailFasilitas = () => {
                   />
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">Email</label>
+                  <label htmlFor="bk-email" className="form-label">Email</label>
                   <input
                     type="email"
                     className="form-control"
-                    name="email"
+                    id="bk-email" name="email"
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="organisasi@gmail.com"
@@ -434,13 +435,13 @@ export const DetailFasilitas = () => {
               </div>
 
               {/* 4. Dokumen */}
-              <h6 className="fw-bold text-uppercase text-muted small mb-3 mt-4">4. Dokumen</h6>
+              <h3 className="form-section-title">4. Dokumen</h3>
               <div className="mb-3">
-                <label className="form-label">Surat Peminjaman</label>
+                <label htmlFor="bk-surat_peminjaman" className="form-label">Surat Peminjaman</label>
                 <input
                   type="file"
                   className="form-control"
-                  name="surat_peminjaman"
+                  id="bk-surat_peminjaman" name="surat_peminjaman"
                   onChange={(e) => setSuratPeminjaman(e.target.files[0])}
                   accept=".pdf,.jpg,.jpeg,.png"
                   required
@@ -456,10 +457,10 @@ export const DetailFasilitas = () => {
               </div>
 
               <div className="text-end">
-                <button type="button" className="btn btn-outline-secondary me-2" onClick={() => setShowForm(false)}>
+                <button type="button" className="btn btn-secondary me-2" onClick={() => setShowForm(false)}>
                   Batal
                 </button>
-                <button type="submit" className="btn btn-danger" disabled={loading || Boolean(pesanWaktu)}>
+                <button type="submit" className="btn btn-primary" disabled={loading || Boolean(pesanWaktu)}>
                   {loading ? 'Memproses...' : 'Ajukan Peminjaman'}
                 </button>
               </div>
@@ -468,100 +469,78 @@ export const DetailFasilitas = () => {
         </Modal.Body>
       </Modal>
 
-      {/* DETAIL FASILITAS */}
-      <div className="container my-2">
-        <h2 className="fw-bold fs-2 text-center py-5">DETAIL FASILITAS</h2>
-
-        <div className="row">
-          <div className="col-lg-6 mb-4">
-            <img
-              src={images[selectedImage] || fasilitasImageUrl(null)}
-              alt={facility?.nama_fasilitas || ''}
-              className="img-fluid rounded"
-              style={{
-                width: '100%',
-                height: '400px',
-                objectFit: 'cover'
-              }}
-              onError={handleImageError}
-            />
-          </div>
-
-          <div className="col-lg-5 offset-lg-1">
-            <p className="fw-semibold">Ruangan ini telah di booking pada:</p>
-
-            <table className="table table-bordered">
-              <thead>
-                <tr>
-                  <th scope="col">TANGGAL PINJAM</th>
-                  <th scope="col">JAM MULAI</th>
-                  <th scope="col">JAM AKHIR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jadwalMendatang.length > 0 ? (
-                  jadwalMendatang.map((booking, index) => (
-                    <tr key={index}>
-                      <td>{formatRentangTanggal(booking.tanggal_mulai, booking.tanggal_selesai)}</td>
-                      <td>{labelJam(booking.waktu_mulai)}</td>
-                      <td>{labelJam(booking.waktu_selesai)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="3" className="text-center">Belum ada peminjaman</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Thumbnail Images */}
-        <div className="row py-3">
-          {images.map((img, index) => (
-            <div className="col-4 col-md-2" key={index}>
+      <div className="page">
+        <div className="container">
+          <div className="row g-5">
+            <div className="col-lg-7">
+              <h2 className="visually-hidden">Foto fasilitas</h2>
               <img
-                src={img}
-                alt={`Foto ${index + 1}`}
-                className={`img-fluid rounded ${selectedImage === index ? 'border border-2 border-primary' : ''}`}
-                style={{
-                  width: '100%',
-                  height: '120px',
-                  objectFit: 'cover',
-                  cursor: 'pointer',
-                  opacity: selectedImage === index ? '1' : '0.7'
-                }}
-                onClick={() => setSelectedImage(index)}
+                src={images[selectedImage] || fasilitasImageUrl(null)}
+                alt={facility ? `Foto ${facility.nama_fasilitas}` : ''}
+                className="gallery-main"
                 onError={handleImageError}
               />
-            </div>
-          ))}
-        </div>
+              {images.length > 1 && (
+                <div className="gallery-thumbs">
+                  {images.map((img, index) => (
+                    <button
+                      type="button"
+                      key={img}
+                      aria-pressed={selectedImage === index}
+                      aria-label={`Tampilkan foto ${index + 1}`}
+                      onClick={() => setSelectedImage(index)}
+                    >
+                      <img src={img} alt="" onError={handleImageError} />
+                    </button>
+                  ))}
+                </div>
+              )}
 
-        {/* TABLE */}
-        {facility && (
-          <div className="row">
-            <div className="col-lg-6">
-              <table className="table table-bordered">
-                <thead>
-                  <tr>
-                    <th scope="col">Gedung</th>
-                    <th scope="col">Lantai</th>
-                    <th scope="col">Kapasitas</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>{facility.gedung}</td>
-                    <td>{facility.lantai}</td>
-                    <td>{facility.kapasitas} Orang</td>
-                  </tr>
-                </tbody>
-              </table>
+              {facility && (
+                <dl className="spec-list mt-4">
+                  <div>
+                    <dt>Gedung</dt>
+                    <dd>{facility.gedung || '-'}</dd>
+                  </div>
+                  <div>
+                    <dt>Lantai</dt>
+                    <dd>{facility.lantai || '-'}</dd>
+                  </div>
+                  <div>
+                    <dt>Kapasitas</dt>
+                    <dd>{facility.kapasitas} orang</dd>
+                  </div>
+                </dl>
+              )}
+            </div>
+
+            <div className="col-lg-5">
+              <section className="panel" aria-labelledby="jadwal-terpakai">
+                <h2 id="jadwal-terpakai" className="panel-title">Jadwal yang sudah terisi</h2>
+                {jadwalMendatang.length > 0 ? (
+                  <ul className="item-list">
+                    {jadwalMendatang.map((booking, index) => (
+                      <li key={index}>
+                        <span className="item-title">
+                          {formatRentangTanggal(booking.tanggal_mulai, booking.tanggal_selesai)}
+                        </span>
+                        <span className="text-muted small">
+                          {labelJam(booking.waktu_mulai)}–{labelJam(booking.waktu_selesai)} WITA
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-muted mb-0">Belum ada jadwal. Fasilitas ini bebas dipesan.</p>
+                )}
+                <p className="small text-muted mt-3 mb-0">
+                  Peminjaman memerlukan izin kegiatan yang sudah disetujui.{' '}
+                  <Link to="/izin-kegiatan">Ajukan izin kegiatan</Link>.
+                </p>
+              </section>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

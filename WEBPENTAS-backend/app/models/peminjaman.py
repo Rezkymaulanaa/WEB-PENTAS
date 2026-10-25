@@ -19,7 +19,7 @@ class Peminjaman(db.Model):
     keperluan = db.Column(db.Text, nullable=False)
     email = db.Column(db.String(255), nullable=False)
     surat_peminjaman = db.Column(db.String(255), nullable=False)
-    status = db.Column(db.Enum('pending', 'disetujui', 'ditolak', 'disposisi', 'selesai'), default='pending')
+    status = db.Column(db.Enum('pending', 'disetujui', 'ditolak', 'disposisi', 'selesai', 'dibatalkan'), default='pending')
     komentar = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.TIMESTAMP, default=datetime.utcnow)
 

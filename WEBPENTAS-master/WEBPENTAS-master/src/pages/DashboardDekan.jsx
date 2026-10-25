@@ -10,16 +10,16 @@ import { DetailPerizinan } from "./dekan/DetailPerizinan";
 import { RiwayatAktivitas } from "./dekan/RiwayatAktivitas";
 
 const MENU = [
-  { to: "", label: "Beranda", icon: FaTachometerAlt, end: true },
-  { to: "izin-kegiatan", label: "Daftar Perizinan", icon: FaFileSignature },
-  { to: "peminjaman", label: "Daftar Peminjaman", icon: FaClipboardList },
-  { to: "fasilitas", label: "Manajemen Fasilitas", icon: FaBuilding },
-  { to: "riwayat", label: "Riwayat Aktivitas", icon: FaHistory },
+  { to: "", label: "Ringkasan", icon: FaTachometerAlt, end: true },
+  { to: "izin-kegiatan", label: "Izin kegiatan", icon: FaFileSignature },
+  { to: "peminjaman", label: "Peminjaman", icon: FaClipboardList },
+  { to: "fasilitas", label: "Fasilitas", icon: FaBuilding },
+  { to: "riwayat", label: "Riwayat", icon: FaHistory },
 ];
 
 export function DashboardDekan() {
   return (
-    <DashboardLayout title="Dashboard Dekan" items={MENU}>
+    <DashboardLayout title="Dekan" items={MENU}>
       <Routes>
         <Route index element={<BerandaDekan />} />
         <Route path="peminjaman" element={<DaftarPeminjaman />} />

@@ -13,7 +13,7 @@ class IzinKegiatan(db.Model):
     surat_perizinan = db.Column(db.String(255), nullable=False)
     
     # Definisi status menggunakan enum literal
-    status = db.Column(db.Enum('pending', 'disetujui', 'ditolak', 'disposisi', 'selesai'), default='pending')
+    status = db.Column(db.Enum('pending', 'disetujui', 'ditolak', 'disposisi', 'selesai', 'dibatalkan'), default='pending')
     komentar = db.Column(db.String(255), nullable=True)
     tanggal_permintaan = db.Column(db.TIMESTAMP, nullable=False, server_default=db.func.current_timestamp())
 

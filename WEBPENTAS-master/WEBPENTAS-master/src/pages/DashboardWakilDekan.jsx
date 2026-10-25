@@ -1,123 +1,90 @@
-import { Routes, Route, useNavigate, useParams } from "react-router-dom";
+import { Routes, Route, Link, useParams } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
-import { FaInbox, FaCheckCircle, FaTimesCircle, FaHome, FaHistory } from "react-icons/fa";
+import { FaInbox, FaHome, FaHistory } from "react-icons/fa";
 import api, { getErrorMessage } from "../utils/api";
 import { DashboardLayout } from "../components/DashboardLayout";
-import { DokumenPreview, IzinKegiatanInfo, RejectModal, StatusBadge, Toast } from "../components/common";
+import { Loading, PageHeader, RejectModal, StatCard, StatusBadge, Toast } from "../components/common";
+import { BackLink, PeminjamanDetail } from "../components/detail";
 import { RiwayatAktivitas } from "./dekan/RiwayatAktivitas";
-import { formatRentangTanggal, formatTanggal, formatWaktuUtc } from "../utils/format";
+import { formatRentangTanggal, formatWaktuUtc } from "../utils/format";
 
 // Dashboard Wakil Dekan 2: memutuskan peminjaman ruangan/sarana yang didisposisi Dekan
 const MENU = [
-  { to: "/dashboard-wadek", label: "Beranda", icon: FaHome, end: true },
-  { to: "/dashboard-wadek/disposisi", label: "Daftar Peminjaman Fasilitas", icon: FaInbox },
-  { to: "/dashboard-wadek/riwayat", label: "Riwayat Peminjaman", icon: FaHistory },
+  { to: "/dashboard-wadek", label: "Ringkasan", icon: FaHome, end: true },
+  { to: "/dashboard-wadek/disposisi", label: "Disposisi peminjaman", icon: FaInbox },
+  { to: "/dashboard-wadek/riwayat", label: "Riwayat peminjaman", icon: FaHistory },
 ];
 
 export function DashboardWakilDekan() {
   return (
-    <DashboardLayout title="Dashboard WD 2" items={MENU}>
+    <DashboardLayout title="Wakil Dekan 2" items={MENU}>
       <Routes>
         <Route index element={<BerandaWadek />} />
         <Route path="disposisi" element={<DaftarDisposisi />} />
         <Route path="disposisi/:id" element={<DetailDisposisi />} />
-        <Route path="riwayat" element={<RiwayatAktivitas judul="Riwayat Peminjaman" />} />
+        <Route path="riwayat" element={<RiwayatAktivitas eyebrow="Wakil Dekan 2" />} />
       </Routes>
     </DashboardLayout>
   );
 }
 
-function BerandaWadek() {
-  const [disposisi, setDisposisi] = useState([]);
-  const [loading, setLoading] = useState(true);
-
+const useDisposisi = () => {
+  const [disposisi, setDisposisi] = useState(null);
   useEffect(() => {
     api.get("/peminjaman/wadek")
       .then((response) => setDisposisi(response.data))
-      .catch((error) => console.error("Error:", error))
-      .finally(() => setLoading(false));
+      .catch((error) => {
+        console.error("Error:", error);
+        setDisposisi([]);
+      });
   }, []);
+  return disposisi;
+};
 
-  if (loading) {
-    return <div className="loading">Memuat data...</div>;
-  }
+function BerandaWadek() {
+  const disposisi = useDisposisi();
+  if (!disposisi) return <Loading />;
 
   const hitung = (status) => disposisi.filter((d) => d.status_disposisi === status).length;
+  const menunggu = disposisi.filter((d) => d.status_disposisi === "pending");
 
   return (
-    <div className="dashboard-content">
-      <h1 className="dashboard-title">Dashboard Overview</h1>
+    <>
+      <PageHeader eyebrow="Wakil Dekan 2" title="Ringkasan" description="Peminjaman fasilitas yang didisposisikan Dekan kepada Anda." />
 
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon pending">
-            <FaInbox />
-          </div>
-          <div className="stat-info">
-            <h3>Disposisi Pending</h3>
-            <div className="value">{hitung("pending")}</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon approved">
-            <FaCheckCircle />
-          </div>
-          <div className="stat-info">
-            <h3>Disposisi Disetujui</h3>
-            <div className="value">{hitung("disetujui")}</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon rejected">
-            <FaTimesCircle />
-          </div>
-          <div className="stat-info">
-            <h3>Disposisi Ditolak</h3>
-            <div className="value">{hitung("ditolak")}</div>
-          </div>
-        </div>
+        <StatCard label="Menunggu keputusan" value={hitung("pending")} tone="pending" />
+        <StatCard label="Disetujui" value={hitung("disetujui")} tone="ok" />
+        <StatCard label="Ditolak" value={hitung("ditolak")} tone="no" />
       </div>
 
-      <div className="dashboard-grid">
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2>Disposisi Terbaru</h2>
-          </div>
-          <div className="notification-list">
-            {disposisi.slice(0, 5).map((item) => (
-              <div key={item.id} className="peminjaman-item">
-                <div className="peminjaman-info">
-                  <h4>{item.nama_organisasi}</h4>
-                  <p>{item.nama_fasilitas} &middot; {formatWaktuUtc(item.created_at)}</p>
-                  <StatusBadge status={item.status_disposisi} />
-                </div>
-              </div>
+      <section className="panel">
+        <div className="panel-head">
+          <h2 className="panel-title">Menunggu keputusan Anda</h2>
+          <Link to="disposisi" className="link-arrow small">Semua →</Link>
+        </div>
+        {menunggu.length ? (
+          <ul className="item-list">
+            {menunggu.slice(0, 6).map((item) => (
+              <li key={item.id}>
+                <span>
+                  <Link to={`disposisi/${item.id}`} className="item-title">{item.nama_fasilitas}</Link>
+                  <span className="item-sub">
+                    {item.nama_organisasi} · {formatRentangTanggal(item.tanggal_mulai, item.tanggal_selesai)} · didisposisi {formatWaktuUtc(item.created_at)}
+                  </span>
+                </span>
+              </li>
             ))}
-            {disposisi.length === 0 && <div className="no-data">Belum ada disposisi</div>}
-          </div>
-        </div>
-      </div>
-    </div>
+          </ul>
+        ) : <p className="text-muted mb-0">Tidak ada disposisi yang menunggu.</p>}
+      </section>
+    </>
   );
 }
 
 function DaftarDisposisi() {
-  const [disposisi, setDisposisi] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    api.get("/peminjaman/wadek")
-      .then((response) => setDisposisi(response.data))
-      .catch((error) => console.error("Error:", error))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return <div className="loading">Memuat data...</div>;
-  }
+  const disposisi = useDisposisi();
+  if (!disposisi) return <Loading />;
 
   // Sembunyikan peminjaman yang tanggalnya sudah lewat
   const aktif = disposisi.filter(
@@ -125,64 +92,56 @@ function DaftarDisposisi() {
   );
 
   return (
-    <div className="dashboard-content">
-      <h1 className="dashboard-title">Daftar Peminjaman Didisposisi</h1>
+    <>
+      <PageHeader eyebrow="Wakil Dekan 2" title="Disposisi peminjaman" description="Peminjaman yang jadwalnya belum lewat." />
 
       <div className="table-container">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Nama Organisasi</th>
-              <th>Penanggung Jawab</th>
-              <th>Fasilitas</th>
-              <th>Jadwal Peminjaman</th>
-              <th>Status</th>
-              <th>Aksi</th>
+              <th scope="col">Pemohon</th>
+              <th scope="col">Fasilitas</th>
+              <th scope="col">Jadwal</th>
+              <th scope="col">Status</th>
+              <th scope="col" className="cell-actions"><span className="visually-hidden">Aksi</span></th>
             </tr>
           </thead>
           <tbody>
-            {aktif.length > 0 ? (
-              aktif.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.nama_organisasi}</td>
-                  <td>{item.penanggung_jawab}</td>
-                  <td>{item.nama_fasilitas}</td>
-                  <td>
-                    {formatRentangTanggal(item.tanggal_mulai, item.tanggal_selesai)}
-                    <br />
-                    <small>{item.waktu_mulai} - {item.waktu_selesai}</small>
-                  </td>
-                  <td>
-                    <StatusBadge status={item.status_disposisi} />
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="btn-detail"
-                        onClick={() => navigate(`/dashboard-wadek/disposisi/${item.id}`)}
-                      >
-                        <i className="bi bi-eye"></i>
-                        Detail
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="6" className="text-center">Tidak ada peminjaman yang aktif</td>
-              </tr>
+            {aktif.length === 0 && (
+              <tr><td colSpan="5" className="empty-state">Tidak ada peminjaman aktif.</td></tr>
             )}
+            {aktif.map((item) => (
+              <tr key={item.id}>
+                <td>
+                  <span className="fw-semibold">{item.nama_organisasi}</span>
+                  <span className="cell-sub">{item.penanggung_jawab}</span>
+                </td>
+                <td>{item.nama_fasilitas}</td>
+                <td>
+                  {formatRentangTanggal(item.tanggal_mulai, item.tanggal_selesai)}
+                  <span className="cell-sub">{item.waktu_mulai.replace(":", ".")}–{item.waktu_selesai.replace(":", ".")} WITA</span>
+                </td>
+                <td><StatusBadge status={item.status_disposisi} /></td>
+                <td className="cell-actions">
+                  <Link
+                    to={`/dashboard-wadek/disposisi/${item.id}`}
+                    className={`btn btn-sm ${item.status_disposisi === "pending" ? "btn-primary" : "btn-secondary"}`}
+                  >
+                    {item.status_disposisi === "pending" ? "Tinjau" : "Detail"}
+                    <span className="visually-hidden"> {item.nama_organisasi}</span>
+                  </Link>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-    </div>
+    </>
   );
 }
 
 function DetailDisposisi() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [disposisi, setDisposisi] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showReject, setShowReject] = useState(false);
@@ -190,7 +149,6 @@ function DetailDisposisi() {
 
   const fetchDetailDisposisi = useCallback(async () => {
     try {
-      setLoading(true);
       const response = await api.get(`/disposisi/${id}`);
       setDisposisi(response.data);
     } catch (error) {
@@ -217,104 +175,35 @@ function DetailDisposisi() {
     }
   };
 
-  if (loading) return <div className="loading">Memuat data...</div>;
-  if (!disposisi) return <div>Data tidak ditemukan</div>;
+  if (loading) return <Loading />;
+  if (!disposisi) return <div className="panel empty-state">Data tidak ditemukan.</div>;
 
   return (
     <div className="detail-container">
-      <h2>Detail Peminjaman</h2>
+      <BackLink to="/dashboard-wadek/disposisi">Disposisi peminjaman</BackLink>
+      <PageHeader eyebrow="Disposisi dari Dekan" title={disposisi.nama_organisasi} />
 
-      <div className="detail-section">
-        <h3>Informasi Pemohon</h3>
-        <table>
-          <tbody>
-            <tr>
-              <td>Nama Organisasi</td>
-              <td>: {disposisi.nama_organisasi}</td>
-            </tr>
-            <tr>
-              <td>Penanggung Jawab</td>
-              <td>: {disposisi.penanggung_jawab}</td>
-            </tr>
-            <tr>
-              <td>Kontak</td>
-              <td>: {disposisi.kontak_pj}</td>
-            </tr>
-            <tr>
-              <td>Email</td>
-              <td>: {disposisi.email}</td>
-            </tr>
-            <tr>
-              <td>Fasilitas</td>
-              <td>: {disposisi.nama_fasilitas}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <PeminjamanDetail
+        data={disposisi}
+        status={disposisi.status_disposisi}
+        catatan={disposisi.status_disposisi === "ditolak" ? disposisi.catatan : null}
+      />
 
-      <div className="detail-section">
-        <h3>Informasi Peminjaman</h3>
-        <table>
-          <tbody>
-            <tr>
-              <td>Tanggal Mulai</td>
-              <td>: {formatTanggal(disposisi.tanggal_mulai)}</td>
-            </tr>
-            <tr>
-              <td>Tanggal Selesai</td>
-              <td>: {formatTanggal(disposisi.tanggal_selesai)}</td>
-            </tr>
-            <tr>
-              <td>Waktu</td>
-              <td>: {disposisi.waktu_mulai} - {disposisi.waktu_selesai}</td>
-            </tr>
-            <tr>
-              <td>Keperluan</td>
-              <td>: {disposisi.keperluan}</td>
-            </tr>
-            <tr>
-              <td>Status</td>
-              <td>: <StatusBadge status={disposisi.status_disposisi} /></td>
-            </tr>
-            {disposisi.status_disposisi === "ditolak" && (
-              <tr>
-                <td>Catatan</td>
-                <td>: {disposisi.catatan}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <IzinKegiatanInfo izin={disposisi.izin_kegiatan} />
-
-      <div className="detail-section">
-        <h3>Dokumen</h3>
-        <DokumenPreview filename={disposisi.surat_peminjaman} />
-      </div>
-
-      <div className="action-buttons">
-        {disposisi.status_disposisi === "pending" && (
-          <>
-            <button className="btn-approve" onClick={() => handleStatusUpdate("disetujui")}>
-              <i className="bi bi-check-lg"></i>
-              Setujui
-            </button>
-            <button className="btn btn-danger" onClick={() => setShowReject(true)}>
-              <i className="bi bi-x-lg"></i> Tolak
-            </button>
-          </>
-        )}
-        <button className="btn-back" onClick={() => navigate("/dashboard-wadek/disposisi")}>
-          <i className="bi bi-arrow-left"></i>
-          Kembali
-        </button>
-      </div>
+      {disposisi.status_disposisi === "pending" && (
+        <div className="detail-actions">
+          <button className="btn btn-success" onClick={() => handleStatusUpdate("disetujui")}>
+            <i className="bi bi-check-lg" aria-hidden="true"></i> Setujui peminjaman
+          </button>
+          <span className="spacer" />
+          <button className="btn btn-outline-danger" onClick={() => setShowReject(true)}>Tolak</button>
+        </div>
+      )}
 
       <RejectModal
         show={showReject}
         onHide={() => setShowReject(false)}
         onSubmit={(catatan) => handleStatusUpdate("ditolak", catatan)}
+        title="Tolak peminjaman"
       />
       <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>

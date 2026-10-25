@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { Modal, Button } from 'react-bootstrap';
 import api, { getErrorMessage } from '../../utils/api';
-import { ROLE_LABEL } from '../../utils/auth';
-import { Toast } from '../../components/common';
-import '../../disc/css/main.css';
+import { ROLE_LABEL, getSession } from '../../utils/auth';
+import { Loading, PageHeader, Toast } from '../../components/common';
+
+const FORM_KOSONG = { email: '', password: '', role: '' };
 
 function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -10,244 +12,179 @@ function UserManagement() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    role: ''
-  });
-  const [toastMessage, setToastMessage] = useState(null);  // State untuk pesan toast
+  const [formData, setFormData] = useState(FORM_KOSONG);
+  const [formError, setFormError] = useState('');
+  const [akanDihapus, setAkanDihapus] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [keyword, setKeyword] = useState('');
+  const { id: myId } = getSession();
 
-  // Fetch users
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
-      setLoading(true);
       const response = await api.get('/users');
-      setUsers(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error(error);
-      setError('Gagal mengambil data pengguna');
+      setUsers(response.data);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Gagal mengambil data pengguna'));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
-  // Handle form input
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prevState => ({
-      ...prevState,
-      [name]: value
-    }));
-  };
-
-  // Add user
-  const handleAdd = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/users', {
-        email: formData.email,
-        password: formData.password,
-        role: formData.role
-      });
-
-      setShowModal(false);
-      setFormData({ email: '', password: '', role: '' });
-      fetchUsers();
-      setToastMessage('Pengguna berhasil ditambahkan!');
-    } catch (error) {
-      setToastMessage(getErrorMessage(error, 'Gagal menambah pengguna'));
-    }
-  };
-
-  // Edit user
-  const handleEdit = async (e) => {
-    e.preventDefault();
-    try {
-      await api.put(`/users/${editingUser.id}`, formData);
-      setShowModal(false);
-      setEditingUser(null);
-      setFormData({ email: '', password: '', role: '' });
-      fetchUsers();
-      setToastMessage('Pengguna berhasil diperbarui!');
-    } catch (error) {
-      setToastMessage(getErrorMessage(error, 'Gagal mengupdate pengguna'));
-    }
-  };
-
-  // Delete user
-  const handleDelete = async (id) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) {
-      try {
-        await api.delete(`/users/${id}`);
-        fetchUsers();
-        setToastMessage('Pengguna berhasil dihapus!');
-      } catch (error) {
-        setToastMessage(getErrorMessage(error, 'Gagal menghapus pengguna'));
-      }
-    }
-  };
-
-  // Open modal for edit
-  const openEditModal = (user) => {
+  const bukaForm = (user = null) => {
     setEditingUser(user);
-    setFormData({
-      email: user.email,
-      role: user.role,
-      password: '' // kosongkan password saat edit
-    });
+    setFormData(user ? { email: user.email, role: user.role, password: '' } : FORM_KOSONG);
+    setFormError('');
     setShowModal(true);
   };
 
-  const getRoleText = (role) => ROLE_LABEL[role] || role;
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        await api.put(`/users/${editingUser.id}`, formData);
+        setToastMessage('Pengguna berhasil diperbarui');
+      } else {
+        await api.post('/users', formData);
+        setToastMessage('Pengguna berhasil ditambahkan');
+      }
+      setShowModal(false);
+      fetchUsers();
+    } catch (err) {
+      setFormError(getErrorMessage(err, 'Gagal menyimpan pengguna'));
+    }
+  };
 
-  if (loading) return <div className="loading">Loading...</div>;
-  if (error) return <div className="error">{error}</div>;
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/users/${akanDihapus.id}`);
+      setToastMessage('Pengguna berhasil dihapus');
+      fetchUsers();
+    } catch (err) {
+      setToastMessage(getErrorMessage(err, 'Gagal menghapus pengguna'));
+    } finally {
+      setAkanDihapus(null);
+    }
+  };
+
+  const kata = keyword.trim().toLowerCase();
+  const tampil = users.filter((u) => !kata || u.email.toLowerCase().includes(kata) || (ROLE_LABEL[u.role] || '').toLowerCase().includes(kata));
 
   return (
-    <div className="management-card">
-      <div className="card-header">
-        <h2>Kelola Pengguna</h2>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setEditingUser(null);
-            setFormData({ email: '', password: '', role: '' });
-            setShowModal(true);
-          }}
-        >
-          + Tambah Pengguna
+    <>
+      <PageHeader eyebrow="Admin" title="Pengguna" description="Kelola akun mahasiswa dan pimpinan fakultas.">
+        <button className="btn btn-primary" onClick={() => bukaForm()}>
+          <i className="bi bi-plus-lg" aria-hidden="true"></i> Tambah pengguna
         </button>
-      </div>
+      </PageHeader>
 
-      {/* Modal Form */}
-      <div className={`custom-modal ${showModal ? 'show' : ''}`}>
-        <div className="custom-modal-dialog">
-          <div className="custom-modal-content">
-            <div className="custom-modal-header">
-              <h5 className="custom-modal-title">
-                {editingUser ? 'Edit Pengguna' : 'Tambah Pengguna'}
-              </h5>
-              <button
-                type="button"
-                className="btn-close"
-                onClick={() => {
-                  setShowModal(false);
-                  setEditingUser(null);
-                  setFormData({ email: '', password: '', role: '' });
-                }}
-              />
-            </div>
-            <form onSubmit={editingUser ? handleEdit : handleAdd}>
-              <div className="form-group">
-                <label>Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Password {editingUser && '(Kosongkan jika tidak ingin mengubah)'}</label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  required={!editingUser}
-                  minLength={6}
-                />
-              </div>
-              <div className="form-group">
-                <label>Role</label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  required
-                  className='form-select'
-                  aria-label="Floating label select example"
-                >
-                  <option value="" disabled>Pilih role</option>
-                  <option value="mahasiswa">Mahasiswa</option>
-                  <option value="admin">Admin</option>
-                  <option value="dekan">Dekan</option>
-                  <option value="wakil_dekan1">Wakil Dekan 1</option>
-                  <option value="wakil_dekan">Wakil Dekan 2</option>
-                </select>
-              </div>
-              <div className="custom-modal-footer">
-                <button type="submit" className="btn btn-primary">
-                  {editingUser ? 'Update' : 'Simpan'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingUser(null);
-                    setFormData({ email: '', password: '', role: '' });
-                  }}
-                >
-                  Batal
-                </button>
-              </div>
-            </form>
-          </div>
+      <div className="toolbar">
+        <div>
+          <label htmlFor="cari-user" className="visually-hidden">Cari pengguna</label>
+          <input id="cari-user" type="search" className="form-control" placeholder="Cari email atau peran"
+            value={keyword} onChange={(e) => setKeyword(e.target.value)} />
         </div>
       </div>
 
-      {/* Table */}
-      {users.length > 0 ? (
-        <div className="table-responsive">
-          <table className="table">
+      {loading ? <Loading /> : error ? <div className="alert alert-danger">{error}</div> : (
+        <div className="table-container">
+          <table className="data-table">
             <thead>
               <tr>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Aksi</th>
+                <th scope="col">Email</th>
+                <th scope="col">Peran</th>
+                <th scope="col" className="cell-actions"><span className="visually-hidden">Aksi</span></th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {tampil.length === 0 && (
+                <tr><td colSpan="3" className="empty-state">Tidak ada pengguna.</td></tr>
+              )}
+              {tampil.map((user) => (
                 <tr key={user.id}>
-                  <td>{user.email}</td>
                   <td>
-                    <span className="text-dark">
-                      {getRoleText(user.role)}
-                    </span>
+                    {user.email}
+                    {String(user.id) === myId && <span className="cell-sub">Akun Anda</span>}
                   </td>
-                  <td className="form-actions my-auto">
-                    <button
-                      className="btn btn-warning"
-                      onClick={() => openEditModal(user)}
-                    >
-                      Edit
+                  <td>{ROLE_LABEL[user.role] || user.role}</td>
+                  <td className="cell-actions">
+                    <button className="btn btn-secondary btn-sm" onClick={() => bukaForm(user)}>
+                      Ubah<span className="visually-hidden"> {user.email}</span>
                     </button>
-                    <button
-                      className="btn btn-danger"
-                      onClick={() => handleDelete(user.id)}
-                    >
-                      Hapus
-                    </button>
+                    {String(user.id) !== myId && (
+                      <button className="btn btn-outline-danger btn-sm" onClick={() => setAkanDihapus(user)}>
+                        Hapus<span className="visually-hidden"> {user.email}</span>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      ) : (
-        <div className="no-data">Tidak ada data pengguna</div>
       )}
 
+      <Modal show={showModal} onHide={() => setShowModal(false)} centered>
+        <form onSubmit={handleSubmit}>
+          <Modal.Header closeButton>
+            <Modal.Title>{editingUser ? 'Ubah pengguna' : 'Tambah pengguna'}</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <div className="mb-3">
+              <label htmlFor="user-email" className="form-label">Email</label>
+              <input id="user-email" type="email" name="email" className="form-control"
+                value={formData.email} onChange={handleInputChange} required />
+            </div>
+            <div className="mb-3">
+              <label htmlFor="user-password" className="form-label">Password</label>
+              <input id="user-password" type="password" name="password" className="form-control"
+                value={formData.password} onChange={handleInputChange}
+                required={!editingUser} minLength={6} aria-describedby="password-help" autoComplete="new-password" />
+              <div id="password-help" className="form-text">
+                {editingUser ? 'Kosongkan jika tidak ingin mengubah password.' : 'Minimal 6 karakter.'}
+              </div>
+            </div>
+            <div className="mb-1">
+              <label htmlFor="user-role" className="form-label">Peran</label>
+              <select id="user-role" name="role" className="form-select" value={formData.role} onChange={handleInputChange} required>
+                <option value="" disabled>Pilih peran</option>
+                {Object.entries(ROLE_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            {formError && <div className="alert alert-danger mt-3 mb-0" role="alert">{formError}</div>}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Batal</Button>
+            <Button variant="primary" type="submit">{editingUser ? 'Simpan perubahan' : 'Tambah pengguna'}</Button>
+          </Modal.Footer>
+        </form>
+      </Modal>
+
+      <Modal show={Boolean(akanDihapus)} onHide={() => setAkanDihapus(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Hapus pengguna?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Akun <strong>{akanDihapus?.email}</strong> akan dihapus permanen.
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setAkanDihapus(null)}>Batal</Button>
+          <Button variant="danger" onClick={handleDelete}>Hapus</Button>
+        </Modal.Footer>
+      </Modal>
+
       <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
-    </div>
+    </>
   );
 }
 

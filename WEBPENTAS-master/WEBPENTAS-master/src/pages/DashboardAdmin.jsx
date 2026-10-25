@@ -6,14 +6,14 @@ import DashboardHome from "./dashboard/DashboardHome";
 import { DashboardLayout } from "../components/DashboardLayout";
 
 const MENU = [
-  { to: "", label: "Dashboard", icon: FaTachometerAlt, end: true },
-  { to: "users", label: "Manajemen Users", icon: FaUsers },
-  { to: "facilities", label: "Manajemen Fasilitas", icon: FaBuilding },
+  { to: "", label: "Ringkasan", icon: FaTachometerAlt, end: true },
+  { to: "users", label: "Pengguna", icon: FaUsers },
+  { to: "facilities", label: "Fasilitas", icon: FaBuilding },
 ];
 
 export function DashboardAdmin() {
   return (
-    <DashboardLayout title="Dashboard Admin" items={MENU}>
+    <DashboardLayout title="Admin" items={MENU}>
       <Routes>
         <Route index element={<DashboardHome />} />
         <Route path="users" element={<UserManagement />} />

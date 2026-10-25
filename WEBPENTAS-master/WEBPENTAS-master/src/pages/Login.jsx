@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import '../disc/css/main.css';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { DASHBOARD_PATH, saveSession } from '../utils/auth';
 
@@ -14,18 +13,6 @@ export const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validasi input
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError('Email tidak valid');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password minimal 6 karakter');
-      return;
-    }
-
     setError('');
     setIsLoading(true);
 
@@ -46,68 +33,75 @@ export const Login = () => {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-left">
-        <h1 className="fw-bold">WELCOME TO PENTAS</h1>
-        <p>WEBSITE PEMINJAMAN FASILITAS FMIPA UNHAS</p>
-      </div>
+    <div className="login-page">
+      <section className="login-visual" aria-hidden="true">
+        <div className="brand">
+          <img src="/logoUnhas.png" alt="" />
+          <span>
+            <span className="brand-name">SIPANRITA</span>
+            <span className="brand-sub">FMIPA Universitas Hasanuddin</span>
+          </span>
+        </div>
+        <div>
+          <h1>Peminjaman fasilitas dan izin kegiatan FMIPA</h1>
+          <p>Satu akun untuk mengajukan, memeriksa, dan menyetujui kegiatan mahasiswa.</p>
+        </div>
+      </section>
 
-      <div className="login-right">
-        <div className="login-form">
-          <h2 className="fw-bold">LOGIN</h2>
-          <p>Masukkan data dengan lengkap</p>
+      <main id="konten-utama" className="login-panel">
+        <form className="login-form" onSubmit={handleSubmit}>
+          <h2>Masuk</h2>
+          <p>Gunakan akun yang diberikan oleh admin fakultas.</p>
 
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
+          <div className="mb-3">
+            <label htmlFor="email" className="form-label">Email</label>
+            <input
+              id="email"
+              type="email"
+              className="form-control"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoFocus
+            />
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="password" className="form-label">Password</label>
+            <div className="password-field">
               <input
-                type="email"
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                className="form-control"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                aria-pressed={showPassword}
+              >
+                <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true"></i>
+              </button>
             </div>
+          </div>
 
-            <div className="form-group">
-              <div className="password-input-container" style={{ position: 'relative' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '10px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    border: 'none',
-                    background: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {showPassword ? "🙉" : "🙈"}
-                </button>
-              </div>
-            </div>
+          {error && <div className="alert alert-danger" role="alert">{error}</div>}
 
-            <button type="submit" className="login-button" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
-            </button>
+          <button type="submit" className="btn btn-primary btn-lg w-100" disabled={isLoading}>
+            {isLoading ? 'Memeriksa...' : 'Masuk'}
+          </button>
 
-            <div className="forgot-password">
-              <span className="text-muted small">Lupa password? Hubungi admin fakultas.</span>
-            </div>
-
-            {error && <div className="error-message">{error}</div>}
-          </form>
-        </div>
-      </div>
+          <p className="small text-muted mt-4 mb-0">
+            Lupa password? Hubungi admin fakultas melalui halaman <Link to="/contact">Kontak</Link>.
+          </p>
+        </form>
+      </main>
     </div>
   );
 };

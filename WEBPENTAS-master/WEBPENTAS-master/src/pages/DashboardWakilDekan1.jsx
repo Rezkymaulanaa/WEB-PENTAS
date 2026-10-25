@@ -1,21 +1,22 @@
-import { Routes, Route, useNavigate, useParams } from "react-router-dom";
+import { Routes, Route, Link, useParams } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { FaInbox, FaHome, FaHistory } from "react-icons/fa";
 import api, { getErrorMessage } from "../utils/api";
 import { DashboardLayout } from "../components/DashboardLayout";
-import { DokumenPreview, RejectModal, StatusBadge, Toast } from "../components/common";
+import { Loading, PageHeader, RejectModal, StatCard, StatusBadge, Toast } from "../components/common";
+import { BackLink, IzinDetail } from "../components/detail";
 import { formatWaktuLokal, formatWaktuUtc } from "../utils/format";
 
 // Dashboard Wakil Dekan 1: memutuskan izin kegiatan yang didisposisi Dekan
 const MENU = [
-  { to: "/dashboard-wadek1", label: "Beranda", icon: FaHome, end: true },
-  { to: "/dashboard-wadek1/disposisi-kegiatan", label: "Daftar Perizinan", icon: FaInbox },
-  { to: "/dashboard-wadek1/riwayat", label: "Riwayat Perizinan", icon: FaHistory },
+  { to: "/dashboard-wadek1", label: "Ringkasan", icon: FaHome, end: true },
+  { to: "/dashboard-wadek1/disposisi-kegiatan", label: "Disposisi izin kegiatan", icon: FaInbox },
+  { to: "/dashboard-wadek1/riwayat", label: "Riwayat keputusan", icon: FaHistory },
 ];
 
 export function DashboardWakilDekan1() {
   return (
-    <DashboardLayout title="Dashboard WD 1" items={MENU}>
+    <DashboardLayout title="Wakil Dekan 1" items={MENU}>
       <Routes>
         <Route index element={<BerandaWadek />} />
         <Route path="disposisi-kegiatan" element={<DaftarDisposisi />} />
@@ -27,137 +28,109 @@ export function DashboardWakilDekan1() {
 }
 
 function BerandaWadek() {
-  const [pending, setPending] = useState(0);
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
 
   useEffect(() => {
     Promise.all([api.get("/perizinan/wadek1"), api.get("/perizinan/wadek1/notifications")])
-      .then(([pendingRes, notifRes]) => {
-        setPending(pendingRes.data.length);
-        setNotifications(notifRes.data);
-      })
-      .catch((error) => console.error("Error:", error))
-      .finally(() => setLoading(false));
+      .then(([pending, terbaru]) => setData({ pending: pending.data, terbaru: terbaru.data }))
+      .catch((error) => {
+        console.error("Error:", error);
+        setData({ pending: [], terbaru: [] });
+      });
   }, []);
 
-  if (loading) {
-    return <div className="loading">Memuat data...</div>;
-  }
+  if (!data) return <Loading />;
 
   return (
-    <div className="dashboard-content">
-      <h1 className="dashboard-title">Dashboard Overview</h1>
+    <>
+      <PageHeader eyebrow="Wakil Dekan 1" title="Ringkasan" description="Izin kegiatan yang didisposisikan Dekan kepada Anda." />
 
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon pending">
-            <FaInbox />
-          </div>
-          <div className="stat-info">
-            <h3>Disposisi Pending</h3>
-            <div className="value">{pending}</div>
-          </div>
-        </div>
+        <StatCard label="Menunggu keputusan" value={data.pending.length} tone="pending" />
       </div>
 
-      <div className="dashboard-grid">
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2>Disposisi Terbaru</h2>
-          </div>
-          <div className="notification-list">
-            {notifications.map((notif) => (
-              <div key={notif.id} className="perizinan-item">
-                <div className="perizinan-info">
-                  <hr />
-                  <h4>{notif.nama_organisasi}</h4>
-                  <h5>{notif.keperluan}</h5>
-                  <p>Didisposisi: {formatWaktuUtc(notif.created_at)}</p>
-                  <StatusBadge status={notif.status_disposisi} />
-                </div>
-              </div>
-            ))}
-            {notifications.length === 0 && <div className="no-data">Belum ada disposisi</div>}
-          </div>
+      <section className="panel">
+        <div className="panel-head">
+          <h2 className="panel-title">Disposisi terbaru</h2>
+          <Link to="disposisi-kegiatan" className="link-arrow small">Semua →</Link>
         </div>
-      </div>
-    </div>
+        {data.terbaru.length ? (
+          <ul className="item-list">
+            {data.terbaru.map((item) => (
+              <li key={item.id}>
+                <span>
+                  {item.status_disposisi === "pending"
+                    ? <Link to={`disposisi-kegiatan/${item.id}`} className="item-title">{item.keperluan}</Link>
+                    : <span className="item-title">{item.keperluan}</span>}
+                  <span className="item-sub">{item.nama_organisasi} · didisposisi {formatWaktuUtc(item.created_at)}</span>
+                </span>
+                <StatusBadge status={item.status_disposisi} />
+              </li>
+            ))}
+          </ul>
+        ) : <p className="text-muted mb-0">Belum ada disposisi.</p>}
+      </section>
+    </>
   );
 }
 
 function DaftarDisposisi() {
-  const [perizinan, setPerizinan] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [perizinan, setPerizinan] = useState(null);
 
   useEffect(() => {
-    // Server hanya mengirim disposisi yang masih pending, terurut dari terbaru
+    // Server hanya mengirim disposisi yang masih menunggu, terurut dari terbaru
     api.get("/perizinan/wadek1")
       .then((response) => setPerizinan(response.data))
-      .catch((error) => console.error("Error:", error))
-      .finally(() => setLoading(false));
+      .catch((error) => {
+        console.error("Error:", error);
+        setPerizinan([]);
+      });
   }, []);
 
-  if (loading) {
-    return <div className="loading">Memuat data...</div>;
-  }
+  if (!perizinan) return <Loading />;
 
   return (
-    <div className="dashboard-content">
-      <h1 className="dashboard-title">Daftar Perizinan (Status Disposisi)</h1>
+    <>
+      <PageHeader eyebrow="Wakil Dekan 1" title="Disposisi izin kegiatan" description="Izin kegiatan yang menunggu keputusan Anda." />
 
       <div className="table-container">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Nama Organisasi</th>
-              <th>Penanggung Jawab</th>
-              <th>Keperluan</th>
-              <th>Tanggal Permintaan</th>
-              <th>Status</th>
-              <th>Aksi</th>
+              <th scope="col">Kegiatan</th>
+              <th scope="col">Penanggung jawab</th>
+              <th scope="col">Diajukan</th>
+              <th scope="col" className="cell-actions"><span className="visually-hidden">Aksi</span></th>
             </tr>
           </thead>
           <tbody>
-            {perizinan.length > 0 ? (
-              perizinan.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.nama_organisasi}</td>
-                  <td>{item.penanggung_jawab}</td>
-                  <td>{item.keperluan}</td>
-                  <td>{formatWaktuLokal(item.tanggal_permintaan)}</td>
-                  <td>
-                    <StatusBadge status={item.status_disposisi} />
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="btn-detail"
-                        onClick={() => navigate(`/dashboard-wadek1/disposisi-kegiatan/${item.id}`)}
-                      >
-                        <i className="bi bi-eye"></i>
-                        Detail
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="6" className="text-center">Tidak ada surat izin yang di Disposisi</td>
-              </tr>
+            {perizinan.length === 0 && (
+              <tr><td colSpan="4" className="empty-state">Tidak ada izin kegiatan yang menunggu.</td></tr>
             )}
+            {perizinan.map((item) => (
+              <tr key={item.id}>
+                <td>
+                  <span className="fw-semibold">{item.keperluan}</span>
+                  <span className="cell-sub">{item.nama_organisasi}</span>
+                </td>
+                <td>{item.penanggung_jawab}</td>
+                <td>{formatWaktuLokal(item.tanggal_permintaan)}</td>
+                <td className="cell-actions">
+                  <Link to={`/dashboard-wadek1/disposisi-kegiatan/${item.id}`} className="btn btn-primary btn-sm">
+                    Tinjau<span className="visually-hidden"> {item.keperluan}</span>
+                  </Link>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-    </div>
+    </>
   );
 }
 
 function DetailDisposisi() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [disposisi, setDisposisi] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showReject, setShowReject] = useState(false);
@@ -165,7 +138,6 @@ function DetailDisposisi() {
 
   const fetchDetailDisposisi = useCallback(async () => {
     try {
-      setLoading(true);
       const response = await api.get(`/disposisi-kegiatan/${id}`);
       setDisposisi(response.data);
     } catch (error) {
@@ -183,7 +155,7 @@ function DetailDisposisi() {
   const handleStatusUpdate = async (status, komentar = "") => {
     try {
       await api.put(`/disposisi-kegiatan/${id}/status`, { status_disposisi: status, komentar });
-      setToastMessage(status === "disetujui" ? "Perizinan berhasil disetujui" : "Perizinan berhasil ditolak");
+      setToastMessage(status === "disetujui" ? "Izin kegiatan disetujui" : "Izin kegiatan ditolak");
       await fetchDetailDisposisi();
       return true;
     } catch (error) {
@@ -192,62 +164,35 @@ function DetailDisposisi() {
     }
   };
 
-  if (loading) return <div className="loading">Memuat data...</div>;
-  if (!disposisi) return <div>Data tidak ditemukan</div>;
+  if (loading) return <Loading />;
+  if (!disposisi) return <div className="panel empty-state">Data tidak ditemukan.</div>;
 
   return (
     <div className="detail-container">
-      <h2>Detail Perizinan</h2>
+      <BackLink to="/dashboard-wadek1/disposisi-kegiatan">Disposisi izin kegiatan</BackLink>
+      <PageHeader eyebrow="Disposisi dari Dekan" title={disposisi.keperluan} description={disposisi.nama_organisasi} />
 
-      <div className="detail-section">
-        <h3>Informasi Pemohon</h3>
-        <table>
-          <tbody>
-            <tr><td>Nama Organisasi</td><td>: {disposisi.nama_organisasi}</td></tr>
-            <tr><td>Penanggung Jawab</td><td>: {disposisi.penanggung_jawab}</td></tr>
-            <tr><td>Kontak</td><td>: {disposisi.kontak_pj}</td></tr>
-            <tr><td>Email</td><td>: {disposisi.email}</td></tr>
-            <tr><td>Keperluan</td><td>: {disposisi.keperluan}</td></tr>
-            <tr><td>Tanggal Permintaan</td><td>: {formatWaktuLokal(disposisi.tanggal_permintaan)}</td></tr>
-            <tr>
-              <td>Status</td>
-              <td>: <StatusBadge status={disposisi.status_disposisi} /></td>
-            </tr>
-            {disposisi.status_disposisi === "ditolak" && (
-              <tr>
-                <td>Komentar</td>
-                <td>: {disposisi.komentar}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <IzinDetail
+        data={disposisi}
+        status={disposisi.status_disposisi}
+        catatan={disposisi.status_disposisi === "ditolak" ? disposisi.komentar : null}
+      />
 
-      <div className="detail-section">
-        <h3>Dokumen</h3>
-        <DokumenPreview filename={disposisi.surat_perizinan} />
-      </div>
-
-      <div className="action-buttons">
-        {disposisi.status_disposisi === "pending" && (
-          <>
-            <button className="btn-approve" onClick={() => handleStatusUpdate("disetujui")}>
-              <i className="bi bi-check-lg"></i> Setujui
-            </button>
-            <button className="btn btn-danger" onClick={() => setShowReject(true)}>
-              <i className="bi bi-x-lg"></i> Tolak
-            </button>
-          </>
-        )}
-        <button className="btn-back" onClick={() => navigate("/dashboard-wadek1/disposisi-kegiatan")}>
-          <i className="bi bi-arrow-left"></i> Kembali
-        </button>
-      </div>
+      {disposisi.status_disposisi === "pending" && (
+        <div className="detail-actions">
+          <button className="btn btn-success" onClick={() => handleStatusUpdate("disetujui")}>
+            <i className="bi bi-check-lg" aria-hidden="true"></i> Setujui izin kegiatan
+          </button>
+          <span className="spacer" />
+          <button className="btn btn-outline-danger" onClick={() => setShowReject(true)}>Tolak</button>
+        </div>
+      )}
 
       <RejectModal
         show={showReject}
         onHide={() => setShowReject(false)}
         onSubmit={(komentar) => handleStatusUpdate("ditolak", komentar)}
+        title="Tolak izin kegiatan"
       />
       <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>
@@ -274,45 +219,34 @@ function RiwayatAktivitas() {
       .finally(() => setLoading(false));
   }, [currentPage]);
 
-  const handlePageChange = (newPage) => {
-    if (newPage > 0 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
-
-  if (loading) return <div className="text-center mt-3">Memuat riwayat...</div>;
-  if (error) return <div className="alert alert-danger">{error}</div>;
-
   return (
-    <div className="container m-4">
-      <h2 className="mb-4 fw-semibold">Riwayat Aktivitas</h2>
+    <>
+      <PageHeader eyebrow="Wakil Dekan 1" title="Riwayat keputusan" description="Izin kegiatan yang sudah Anda setujui atau tolak." />
 
-      {history.length === 0 ? (
-        <div className="alert alert-warning text-center">Tidak ada riwayat aktivitas.</div>
-      ) : (
-        <div className="table-container mb-4">
+      {loading ? <Loading /> : error ? <div className="alert alert-danger">{error}</div> : (
+        <div className="table-container">
           <table className="data-table">
-            <thead className="table-dark">
+            <thead>
               <tr>
-                <th>No</th>
-                <th>Nama Organisasi</th>
-                <th>Keperluan</th>
-                <th>Status</th>
-                <th>Komentar</th>
-                <th>Tanggal Permintaan</th>
+                <th scope="col">Kegiatan</th>
+                <th scope="col">Diajukan</th>
+                <th scope="col">Keputusan</th>
+                <th scope="col">Catatan</th>
               </tr>
             </thead>
             <tbody>
-              {history.map((item, index) => (
+              {history.length === 0 && (
+                <tr><td colSpan="4" className="empty-state">Belum ada riwayat.</td></tr>
+              )}
+              {history.map((item) => (
                 <tr key={item.id}>
-                  <td>{(currentPage - 1) * limit + index + 1}</td>
-                  <td>{item.nama_organisasi}</td>
-                  <td>{item.keperluan}</td>
                   <td>
-                    <StatusBadge status={item.status_disposisi} />
+                    <span className="fw-semibold">{item.keperluan}</span>
+                    <span className="cell-sub">{item.nama_organisasi}</span>
                   </td>
-                  <td>{item.komentar || "-"}</td>
                   <td>{formatWaktuLokal(item.tanggal_permintaan)}</td>
+                  <td><StatusBadge status={item.status_disposisi} /></td>
+                  <td className="text-muted">{item.komentar || "–"}</td>
                 </tr>
               ))}
             </tbody>
@@ -321,30 +255,24 @@ function RiwayatAktivitas() {
       )}
 
       {totalPages > 1 && (
-        <nav>
-          <ul className="pagination justify-content-center">
+        <nav aria-label="Halaman riwayat">
+          <ul className="pagination justify-content-center mt-4">
             <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-              <button className="page-link" onClick={() => handlePageChange(currentPage - 1)}>
-                Previous
-              </button>
+              <button className="page-link" onClick={() => setCurrentPage(currentPage - 1)}>Sebelumnya</button>
             </li>
-
             {Array.from({ length: totalPages }, (_, i) => (
               <li key={i} className={`page-item ${currentPage === i + 1 ? "active" : ""}`}>
-                <button className="page-link" onClick={() => handlePageChange(i + 1)}>
+                <button className="page-link" onClick={() => setCurrentPage(i + 1)} aria-current={currentPage === i + 1 ? "page" : undefined}>
                   {i + 1}
                 </button>
               </li>
             ))}
-
             <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-              <button className="page-link" onClick={() => handlePageChange(currentPage + 1)}>
-                Next
-              </button>
+              <button className="page-link" onClick={() => setCurrentPage(currentPage + 1)}>Berikutnya</button>
             </li>
           </ul>
         </nav>
       )}
-    </div>
+    </>
   );
 }

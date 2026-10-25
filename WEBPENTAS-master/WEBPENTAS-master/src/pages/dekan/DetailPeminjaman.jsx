@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Modal, Button } from "react-bootstrap";
 import api, { getErrorMessage } from "../../utils/api";
-import { DokumenPreview, IzinKegiatanInfo, RejectModal, StatusBadge, Toast } from "../../components/common";
-import { formatTanggal } from "../../utils/format";
+import { Loading, PageHeader, RejectModal, Toast } from "../../components/common";
+import { BackLink, PeminjamanDetail } from "../../components/detail";
 
 export function DetailPeminjaman() {
   const { id } = useParams();
@@ -10,11 +11,11 @@ export function DetailPeminjaman() {
   const [peminjaman, setPeminjaman] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showReject, setShowReject] = useState(false);
+  const [showDisposisi, setShowDisposisi] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const response = await api.get(`/peminjaman/${id}`);
       setPeminjaman(response.data);
     } catch (error) {
@@ -41,128 +42,56 @@ export function DetailPeminjaman() {
   };
 
   const handleDisposisi = async () => {
-    if (!window.confirm("Disposisikan peminjaman ini ke Wakil Dekan 2?")) return;
     try {
       await api.post("/disposisi", { id_peminjaman: Number(id) });
-      alert("Berhasil mendisposisikan peminjaman ke Wakil Dekan 2");
       navigate("/dashboard-dekan/peminjaman");
     } catch (error) {
+      setShowDisposisi(false);
       setToastMessage(getErrorMessage(error, "Gagal mendisposisikan peminjaman"));
     }
   };
 
-  if (loading) {
-    return <div>Memuat data...</div>;
-  }
-
-  if (!peminjaman) {
-    return <div>Data tidak ditemukan</div>;
-  }
+  if (loading) return <Loading />;
+  if (!peminjaman) return <div className="panel empty-state">Data tidak ditemukan.</div>;
 
   return (
     <div className="detail-container">
-      <h2>Detail Peminjaman</h2>
+      <BackLink to="/dashboard-dekan/peminjaman">Daftar peminjaman</BackLink>
+      <PageHeader eyebrow="Peminjaman fasilitas" title={peminjaman.nama_organisasi} />
 
-      <div className="detail-section">
-        <h3>Informasi Pemohon</h3>
-        <table>
-          <tbody>
-            <tr>
-              <td>Nama Organisasi</td>
-              <td>: {peminjaman.nama_organisasi}</td>
-            </tr>
-            <tr>
-              <td>Penanggung Jawab</td>
-              <td>: {peminjaman.penanggung_jawab}</td>
-            </tr>
-            <tr>
-              <td>Kontak</td>
-              <td>: {peminjaman.kontak_pj}</td>
-            </tr>
-            <tr>
-              <td>Email</td>
-              <td>: {peminjaman.email}</td>
-            </tr>
-            <tr>
-              <td>Fasilitas</td>
-              <td>: {peminjaman.nama_fasilitas}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <PeminjamanDetail data={peminjaman} status={peminjaman.status} catatan={peminjaman.komentar} />
 
-      <div className="detail-section">
-        <h3>Informasi Peminjaman</h3>
-        <table>
-          <tbody>
-            <tr>
-              <td>Tanggal Mulai</td>
-              <td>: {formatTanggal(peminjaman.tanggal_mulai)}</td>
-            </tr>
-            <tr>
-              <td>Tanggal Selesai</td>
-              <td>: {formatTanggal(peminjaman.tanggal_selesai)}</td>
-            </tr>
-            <tr>
-              <td>Waktu</td>
-              <td>
-                : {peminjaman.waktu_mulai} - {peminjaman.waktu_selesai}
-              </td>
-            </tr>
-            <tr>
-              <td>Keperluan</td>
-              <td>: {peminjaman.keperluan}</td>
-            </tr>
-            <tr>
-              <td>Status</td>
-              <td>
-                : <StatusBadge status={peminjaman.status} />
-              </td>
-            </tr>
-            {peminjaman.komentar && (
-              <tr>
-                <td>Catatan</td>
-                <td>: {peminjaman.komentar}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {peminjaman.status === "pending" && (
+        <div className="detail-actions">
+          <button className="btn btn-success" onClick={() => handleStatusUpdate("disetujui")}>
+            <i className="bi bi-check-lg" aria-hidden="true"></i> Setujui
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowDisposisi(true)}>
+            <i className="bi bi-send" aria-hidden="true"></i> Disposisi ke Wakil Dekan 2
+          </button>
+          <span className="spacer" />
+          <button className="btn btn-outline-danger" onClick={() => setShowReject(true)}>Tolak</button>
+        </div>
+      )}
 
-      <IzinKegiatanInfo izin={peminjaman.izin_kegiatan} />
-
-      <div className="detail-section">
-        <h3>Dokumen</h3>
-        <DokumenPreview filename={peminjaman.surat_peminjaman} />
-      </div>
-
-      <div className="action-buttons">
-        <button onClick={() => navigate("/dashboard-dekan/peminjaman")} className="btn-back">
-          <i className="bi bi-arrow-left"></i>
-          Kembali
-        </button>
-        {peminjaman.status === "pending" && (
-          <>
-            <button className="btn-reject" onClick={() => setShowReject(true)}>
-              <i className="bi bi-x-lg"></i>
-              Tolak
-            </button>
-            <button className="btn-approve" onClick={() => handleStatusUpdate("disetujui")}>
-              <i className="bi bi-check-lg"></i>
-              Setujui
-            </button>
-            <button onClick={handleDisposisi} className="btn-disposisi">
-              <i className="bi bi-arrow-left-right"></i>
-              Disposisi ke Wakil Dekan 2
-            </button>
-          </>
-        )}
-      </div>
+      <Modal show={showDisposisi} onHide={() => setShowDisposisi(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Disposisi ke Wakil Dekan 2?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Keputusan atas peminjaman ini akan diserahkan kepada Wakil Dekan 2 (bidang sarana dan prasarana).
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDisposisi(false)}>Batal</Button>
+          <Button variant="primary" onClick={handleDisposisi}>Disposisikan</Button>
+        </Modal.Footer>
+      </Modal>
 
       <RejectModal
         show={showReject}
         onHide={() => setShowReject(false)}
         onSubmit={(komentar) => handleStatusUpdate("ditolak", komentar)}
+        title="Tolak peminjaman"
       />
       <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>

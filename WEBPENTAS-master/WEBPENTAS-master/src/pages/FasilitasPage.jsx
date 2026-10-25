@@ -1,76 +1,54 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import api, { fasilitasImageUrl, handleImageError } from '../utils/api';
+import api from '../utils/api';
+import { FacilityCard, Loading, PageHeader } from '../components/common';
 
 export const FasilitasPage = () => {
   const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [keyword, setKeyword] = useState('');
 
   useEffect(() => {
-    const fetchFacilities = async () => {
-      try {
-        const response = await api.get('/fasilitas');
-        setFacilities(response.data);
-      } catch (error) {
-        console.error('Error fetching fasilitas:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFacilities();
+    api.get('/fasilitas')
+      .then((response) => setFacilities(response.data))
+      .catch((error) => console.error('Error fetching fasilitas:', error))
+      .finally(() => setLoading(false));
   }, []);
 
+  const kata = keyword.trim().toLowerCase();
+  const hasil = facilities.filter((f) =>
+    !kata || [f.nama_fasilitas, f.gedung].some((v) => (v || '').toLowerCase().includes(kata))
+  );
+
   return (
-    <div className="fasilitas container-fluid pb-5" style={{ backgroundColor: '#f8f9fa' }}>
+    <div className="page">
       <div className="container">
-        <h2 className="text-center py-3 fw-semibold">
-          FASILITAS
-        </h2>
+        <PageHeader
+          eyebrow="Fasilitas"
+          title="Ruangan dan fasilitas FMIPA"
+          description="Pilih fasilitas untuk melihat jadwal yang sudah terisi dan mengajukan peminjaman."
+        >
+          <div style={{ minWidth: 260 }}>
+            <label htmlFor="cari-fasilitas" className="visually-hidden">Cari fasilitas</label>
+            <input
+              id="cari-fasilitas"
+              type="search"
+              className="form-control"
+              placeholder="Cari nama ruangan atau gedung"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+          </div>
+        </PageHeader>
 
         {loading ? (
-          <div className="text-center">
-            <p>Loading facilities...</p>
+          <Loading text="Memuat fasilitas..." />
+        ) : hasil.length > 0 ? (
+          <div className="facility-grid">
+            {hasil.map((facility) => <FacilityCard key={facility.id} facility={facility} />)}
           </div>
         ) : (
-          <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4 px-4">
-            {facilities.map((facility) => (
-              <div className="col" key={facility.id}>
-                <div className="card h-100" style={{ maxWidth: '320px', margin: '0 auto' }}>
-                  <div className="card-img-wrapper" style={{ height: '180px' }}>
-                    <img
-                      src={fasilitasImageUrl(facility.image)}
-                      className="card-img-top"
-                      alt={facility.nama_fasilitas}
-                      loading="lazy"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                      }}
-                      onError={handleImageError}
-                    />
-                  </div>
-                  <div className="card-body d-flex flex-column bg-white">
-                    <h5 className="card-title mb-2">{facility.nama_fasilitas}</h5>
-                    <p className="card-text text-muted small mb-3">
-                      Kapasitas: {facility.kapasitas} orang
-                    </p>
-                    <Link
-                      to={`/detail-fasilitas/${facility.id}`}
-                      className="btn btn-outline-secondary btn-sm align-self-start"
-                      style={{
-                        borderRadius: '8px',
-                        fontSize: '0.85rem',
-                        padding: '6px 16px',
-                      }}
-                    >
-                      Lihat Detail
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="panel empty-state">
+            {facilities.length === 0 ? 'Belum ada fasilitas yang terdaftar.' : `Tidak ada fasilitas yang cocok dengan "${keyword}".`}
           </div>
         )}
       </div>

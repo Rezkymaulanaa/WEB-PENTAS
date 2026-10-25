@@ -79,6 +79,27 @@ def add_izin_kegiatan():
     }), 201
 
 
+# Mahasiswa membatalkan izin kegiatannya sendiri
+@izin_kegiatan_bp.route('/izin-kegiatan/<int:id>/batal', methods=['PUT'])
+@login_required(MAHASISWA)
+def batalkan_izin_kegiatan(id):
+    izin = db.get_or_404(IzinKegiatan, id)
+    if izin.id_user != g.user.id:
+        return jsonify({'error': 'Anda tidak memiliki akses ke data ini'}), 403
+    if izin.status not in ('pending', 'disposisi', 'disetujui'):
+        return jsonify({'error': f'Izin kegiatan berstatus {izin.status} tidak dapat dibatalkan'}), 409
+    aktif = [p for p in izin.peminjaman if p.status in ('pending', 'disposisi', 'disetujui')]
+    if aktif:
+        return jsonify({'error': 'Batalkan dulu peminjaman fasilitas yang memakai izin kegiatan ini'}), 409
+
+    # Disposisi yang belum diputuskan WD1 ikut ditarik
+    DisposisiKegiatan.query.filter_by(id_izin_kegiatan=izin.id, status_disposisi='pending').delete()
+    izin.status = 'dibatalkan'
+    db.session.commit()
+
+    return jsonify({'message': 'Izin kegiatan berhasil dibatalkan'})
+
+
 # Dekan menyetujui/menolak langsung izin kegiatan yang masih pending
 @izin_kegiatan_bp.route('/izin-kegiatan/<int:id>/status', methods=['PUT'])
 @login_required(DEKAN)

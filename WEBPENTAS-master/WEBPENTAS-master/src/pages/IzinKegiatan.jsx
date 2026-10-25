@@ -1,13 +1,13 @@
 import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import api, { getErrorMessage } from "../utils/api";
-import { Toast } from "../components/common";
+import { PageHeader, Toast } from "../components/common";
 
 const FORM_KOSONG = {
   nama_organisasi: "",
+  keperluan: "",
   penanggung_jawab: "",
   kontak_pj: "",
-  keperluan: "",
   email: "",
 };
 
@@ -39,7 +39,6 @@ export const IzinKegiatan = () => {
       await api.post("/izin-kegiatan", formDataToSend);
       setToastMessage("Permohonan izin kegiatan Anda telah dikirim");
 
-      // Reset form setelah permohonan berhasil dikirim
       setFormData(FORM_KOSONG);
       setSuratPerizinan(null);
       if (fileInputRef.current) {
@@ -52,71 +51,85 @@ export const IzinKegiatan = () => {
     }
   };
 
-  const fields = [
-    ["nama_organisasi", "Nama Organisasi", "text"],
-    ["penanggung_jawab", "Penanggung Jawab", "text"],
-    ["kontak_pj", "Kontak Penanggung Jawab", "tel"],
-    ["email", "Email", "email"],
-    ["keperluan", "Keperluan / Nama Kegiatan", "text"],
-  ];
+  const input = (name, label, props = {}) => (
+    <div className="mb-3">
+      <label htmlFor={name} className="form-label">{label}</label>
+      <input
+        className="form-control"
+        id={name}
+        name={name}
+        value={formData[name]}
+        onChange={handleChange}
+        required
+        {...props}
+      />
+    </div>
+  );
 
   return (
-    <div className="container my-5">
-      <h2 className="text-center mb-4 fw-semibold">
-        FORM PERMOHONAN IZIN KEGIATAN
-      </h2>
-      <div className="alert alert-info">
-        Izin kegiatan diperiksa oleh Dekan dan Wakil Dekan 1. Setelah <strong>disetujui</strong>, Anda dapat
-        mengajukan peminjaman ruangan/fasilitas melalui halaman <Link to="/fasilitas">Fasilitas</Link>.
-        Pantau statusnya di halaman <Link to="/notifications">Notifikasi</Link>.
-      </div>
-      <div className="card">
-        <div className="card-body">
-          <form onSubmit={handleSubmit}>
-            {fields.map(([name, label, type]) => (
-              <div className="mb-3" key={name}>
-                <label htmlFor={name} className="form-label">
-                  {label}
-                </label>
+    <div className="page">
+      <div className="container">
+        <div className="row g-5">
+          <div className="col-lg-7">
+            <PageHeader
+              eyebrow="Izin kegiatan"
+              title="Ajukan izin kegiatan"
+              description="Izin kegiatan menjadi syarat sebelum organisasi Anda dapat meminjam ruangan atau fasilitas fakultas."
+            />
+
+            <form className="panel" onSubmit={handleSubmit}>
+              <h2 className="form-section-title">Kegiatan</h2>
+              {input("nama_organisasi", "Nama organisasi", { type: "text", placeholder: "Contoh: HIMATIKA FMIPA" })}
+              {input("keperluan", "Nama / keperluan kegiatan", { type: "text", placeholder: "Contoh: Seminar Nasional Matematika" })}
+
+              <h2 className="form-section-title">Penanggung jawab</h2>
+              {input("penanggung_jawab", "Nama lengkap", { type: "text", autoComplete: "name" })}
+              <div className="row">
+                <div className="col-md-6">
+                  {input("kontak_pj", "No. HP / WhatsApp", { type: "tel", autoComplete: "tel", placeholder: "08123456789" })}
+                </div>
+                <div className="col-md-6">
+                  {input("email", "Email", { type: "email", autoComplete: "email", placeholder: "nama@student.unhas.ac.id" })}
+                </div>
+              </div>
+
+              <h2 className="form-section-title">Dokumen</h2>
+              <div className="mb-4">
+                <label htmlFor="suratPerizinan" className="form-label">Surat permohonan izin</label>
                 <input
-                  type={type}
+                  type="file"
                   className="form-control"
-                  id={name}
-                  name={name}
-                  value={formData[name]}
-                  onChange={handleChange}
+                  id="suratPerizinan"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setSuratPerizinan(e.target.files[0])}
+                  ref={fileInputRef}
+                  aria-describedby="surat-help"
                   required
                 />
+                <div id="surat-help" className="form-text">Format PDF, JPG, atau PNG. Maksimal 16MB.</div>
               </div>
-            ))}
 
-            <div className="mb-3">
-              <label htmlFor="suratPerizinan" className="form-label">
-                Surat Perizinan (PDF/JPG/PNG, maks. 16MB)
-              </label>
-              <input
-                type="file"
-                className="form-control"
-                id="suratPerizinan"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => setSuratPerizinan(e.target.files[0])}
-                ref={fileInputRef}
-                required
-              />
-            </div>
+              {error && <div className="alert alert-danger" role="alert">{error}</div>}
 
-            {error && <div className="alert alert-danger">{error}</div>}
-
-            <div className="d-grid gap-2 mb-3">
-              <button
-                type="submit"
-                className="btn btn-secondary"
-                disabled={loading}
-              >
-                {loading ? "Mengirim..." : "Ajukan Permohonan"}
+              <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
+                {loading ? "Mengirim..." : "Kirim permohonan"}
               </button>
+            </form>
+          </div>
+
+          <aside className="col-lg-5">
+            <div className="panel">
+              <h2 className="panel-title">Setelah Anda mengirim</h2>
+              <ol className="ps-3 mb-3 text-muted">
+                <li className="mb-2">Dekan memeriksa permohonan dan dapat langsung memutuskan atau meneruskannya ke Wakil Dekan 1.</li>
+                <li className="mb-2">Hasil keputusan dan catatannya muncul di halaman <Link to="/notifications">Status pengajuan</Link>.</li>
+                <li>Jika disetujui, buka <Link to="/fasilitas">Fasilitas</Link> untuk memesan ruangan.</li>
+              </ol>
+              <p className="small text-muted mb-0">
+                Permohonan yang belum diputuskan masih dapat Anda batalkan dari halaman Status pengajuan.
+              </p>
             </div>
-          </form>
+          </aside>
         </div>
       </div>
 

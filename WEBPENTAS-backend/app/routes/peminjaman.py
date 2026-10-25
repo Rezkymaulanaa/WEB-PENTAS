@@ -208,6 +208,27 @@ def update_status(id):
     })
 
 
+# Mahasiswa membatalkan pengajuannya sendiri
+@peminjaman_bp.route('/peminjaman/<int:id>/batal', methods=['PUT'])
+@login_required(MAHASISWA)
+def batalkan_peminjaman(id):
+    peminjaman = db.get_or_404(Peminjaman, id)
+    if peminjaman.id_user != g.user.id:
+        return jsonify({'error': 'Anda tidak memiliki akses ke data ini'}), 403
+    if peminjaman.status not in ('pending', 'disposisi', 'disetujui'):
+        return jsonify({'error': f'Peminjaman berstatus {peminjaman.status} tidak dapat dibatalkan'}), 409
+    if peminjaman.status == 'disetujui' and \
+            datetime.combine(peminjaman.tanggal_mulai, peminjaman.waktu_mulai) <= datetime.now():
+        return jsonify({'error': 'Peminjaman yang sudah berlangsung tidak dapat dibatalkan'}), 409
+
+    # Disposisi yang belum diputuskan WD2 ikut ditarik
+    Disposisi.query.filter_by(id_peminjaman=peminjaman.id, status_disposisi='pending').delete()
+    peminjaman.status = 'dibatalkan'
+    db.session.commit()
+
+    return jsonify({'message': 'Peminjaman berhasil dibatalkan'})
+
+
 # Jadwal yang sudah disetujui untuk satu fasilitas (publik)
 @peminjaman_bp.route('/peminjaman/fasilitas/<int:id_fasilitas>', methods=['GET'])
 def get_peminjaman_by_fasilitas(id_fasilitas):
